@@ -157,31 +157,56 @@ int create_virtual_machine(int argc, char ** argv)
 	//	fprintf(stderr, "virConnectGetVersion failed\n");
 
 	const char * xmlconfig = "<domain type = 'kvm'><name>demo1</name><title>a first demo xml to create a vm.</title><memory>131072</memory><vcpu>1</vcpu><os><type arch='i686' machine='pc'>hvm</type><boot dev='hd'/><bootmenu enable='no'/></os><feature><acpi/><apic/><pae/></feature><clock offset='localtime'/><on_poweroff>destroy</on_poweroff><on_reboot>restart</on_reboot><on_crash>restart</on_crash><devices><emulator>/usr/bin/qemu</emulator><disk type='file' device='disk'><source file='/home/ww/Work/libvirt/w1.disk.img'/><target dev='hda' bus='virtio'/><driver name='qemu' type='raw'/></disk><interface type='network'><model type='virtio'/><source network='default'/><mac address='1c:75:08:59:f6:22'/></interface><input type='mouse' bus='ps2'/><graphics type='vnc' port='5910' autoport='no' listen='127.0.0.1'/></devices></domain>";
-	//char * xmlconfig = malloc(2048*sizeof(char));
-	//FILE * fp;
-	//char c;
-	//fp = fopen("demo.xml", "r");
-	//while((c = fgetc(fp)) != EOF) {
-	//	*xmlconfig = c ;
-	//	xmlconfig ++ ;
-	//}
-	//xmlconfig = '\0';
-	virDomainPtr dom;
-	dom = virDomainCreateXML(conn, xmlconfig, VIR_DOMAIN_NONE);
-	if(!dom) {
-		printf("guest booted failed.\n");
-		exit(-1);
-	}
-	//if(virDomainCreate(dom) < 0) {
-	//	virDomainFree(dom);
-	//	printf("cannot bootguest.\n");
+	//virDomainPtr dom = virDomainDefineXML(conn, xmlconfig);
+	virDomainPtr dom = virDomainLookupByName(conn, "demo1");
+	//virDomainPtr dom = virDomainCreateXML(conn, xmlconfig, VIR_DOMAIN_NONE);
+	//if(!dom) {
+	//	printf("guest booted failed.\n");
 	//	exit(-1);
 	//}
-	printf("guest %s has booted.\n", virDomainGetName(dom));
-
-	if(virDomainReboot(dom, 0) != 0){
-		printf("reboot failed.\n");
+	
+	//char * xml_desc;
+	//if((xml_desc = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE)) != 0) {
+	//	printf("failed to get xmldesc\n");
+	//	exit(-1);
+	//}
+	//printf("xml_desc = %s\n", xml_desc);
+	//printf("haha\n");
+	if(virDomainCreate(dom) < 0) {
+		virDomainFree(dom);
+		printf("cannot boot guest.\n");
+		exit(-1);
 	}
+	printf("guest %s has booted.\n", virDomainGetName(dom));
+	
+	//if(virDomainReboot(dom, 0) != 0){
+	//	printf("reboot failed.\n");
+	//}
+	
+	//virStreamPtr stream = virStreamNew(conn, 1);
+	//virDomainOpenConsole(dom, NULL, stream, 0);
+	
+	//if(virDomainShutdown(dom) != 0) {
+	//	printf("failed to shutdown\n");
+	//	exit(-1);
+	//}
+	//printf("shutdown.\n");
+
+	//if(virDomainDestroy(dom) != 0) {
+	//	printf("destroy dom failed.\n");
+	//	exit(-1);
+	//}
+	//printf("%s destroy!\n", virDomainGetName(dom));
+
+	//if(virDomainCreate(dom) != 0) {
+	//	printf("gust booted again failed.\n");
+	//	exit(-1);
+	//}
+
+	//printf("guest %s booted again!\n", virDomainGetName(dom));
+
+
+
 	virDomainFree(dom);
 	virConnectClose(conn);
 	return 0;
