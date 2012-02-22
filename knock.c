@@ -178,7 +178,16 @@ int create_virtual_machine(int argc, char ** argv)
 		exit(-1);
 	}
 	printf("guest %s has booted.\n", virDomainGetName(dom));
-	
+	//FILE *fp;
+	//char *xml;
+	//xml = virDomainGetXMLDesc(dom, 0);
+	//if((fp = fopen(virDomainGetName(dom), "w")) ==NULL) {
+	//	printf("cannot open file test\n");
+	//}
+	//fprintf(fp, xml);
+	//fclose(fp);
+	//free(xml);
+
 	//if(virDomainReboot(dom, 0) != 0){
 	//	printf("reboot failed.\n");
 	//}
@@ -205,8 +214,25 @@ int create_virtual_machine(int argc, char ** argv)
 
 	//printf("guest %s booted again!\n", virDomainGetName(dom));
 
+	virDomainInfoPtr domInfo;
+	if(virDomainGetInfo(dom, domInfo) != 0) {
+		printf("get domain info failed!\n");
+		exit(-1);
+	}
+	printf("state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime: %llu\n", domInfo->state, domInfo->maxMem, domInfo->memory, domInfo->nrVirtCpu, domInfo->cpuTime);
 
+	virDomainInterfaceStatsPtr stats;
+	if(virDomainInterfaceStats(dom, "vnet0", stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
+	//	printf("get interface info failed\n");
+	//	exit(-1);
+	} 
+	printf("rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
 
+	if(virDomainDestroy(dom) != 0) {
+		printf("destroy dom failed.\n");
+		exit(-1);
+	}
+	printf("%s destroy!\n", virDomainGetName(dom));
 	virDomainFree(dom);
 	virConnectClose(conn);
 	return 0;
