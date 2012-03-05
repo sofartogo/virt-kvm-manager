@@ -18,6 +18,7 @@
 /*service.c*/
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
@@ -48,6 +49,441 @@ char * getDomainInterfacePath(virDomainPtr dom)
 	return ret;
 }
 
+void resume_all()
+{
+	int * state = malloc(sizeof(int));
+	int i;
+	int doms[100]={0};
+	virConnectPtr conn;
+	memset(buf, '\0', 1024);
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	} else
+		printf("success to open connection to qemu:///system\n");
+
+	if(virConnectListDomains(conn, doms, 100) == -1) {
+		virConnectClose(conn);
+		printf("failed to list connect domains\n");
+		sprintf(buf, "failed to list connect domains");
+		return;
+	}
+	if(doms[0] == 0) {
+		printf("no domain is running\n");
+		sprintf(buf,"no domain is running\n");
+		virConnectClose(conn);
+		return;
+	}
+	virDomainPtr dom;
+	//virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
+	//virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct)) ;
+	for(i = 0; i < 100; i++) {
+		//printf("doms[%d] = %d\t", i, doms[i]);
+		fflush(stdout);
+		if(doms[i] == 0)
+			break;
+		dom = virDomainLookupByID(conn, doms[i]);
+		if(dom == NULL)
+			printf("dom error\n");
+		
+		if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+			sprintf(buf, "get domain state failed\n");
+			return;
+		}
+		printf("state : %d\n", *state);
+		if(*state != 3) {
+			sprintf(buf, "%s is not pausinging\n", virDomainGetName(dom));
+			virConnectClose(conn);
+			continue;
+		}
+
+		if(virDomainResume(dom) == -1) {
+			printf("resume %s failed\n", virDomainGetName(dom));
+			sprintf(buf, "resume %s failed\n", virDomainGetName(dom));
+			virConnectClose(conn);
+			return;
+		} else {
+			printf("resume %s successfully\n", virDomainGetName(dom));
+			sprintf(&buf[strlen(buf)], "resume %s successfully\n", virDomainGetName(dom));
+		}
+	}
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+
+}
+
+void resume(int number)
+{
+	int * state = malloc(sizeof(int));
+	char number_buf[10] = {0};
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///session\n");
+		sprintf(buf, "failed to open connection to qemu:///session");
+		return;
+	} else 
+		printf("success to open connection to qemu:///session\n");
+
+	sprintf(number_buf, "demo%d", number);
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
+	if(dom == NULL)
+		printf("dom error\n");
+	
+	if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+		sprintf(buf, "get domain state failed\n");
+		return;
+	}
+	printf("state : %d\n", *state);
+	if(*state != 3) {
+		sprintf(buf, "%s is not pausing\n", number_buf);
+		virConnectClose(conn);
+		return;
+	}
+	
+	if(virDomainResume(dom) == -1) {
+		printf("resume %s failed\n", virDomainGetName(dom));
+		sprintf(buf, "resume %s failed\n", virDomainGetName(dom));
+		virConnectClose(conn);
+		return;
+	} else {
+		printf("resume %s successfully\n", virDomainGetName(dom));
+		sprintf(buf, "resume %s successfully\n", virDomainGetName(dom));
+	}
+	
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+}
+
+
+
+void suspend_all()
+{
+	char * vir_name;
+	int i;
+	int doms[100]={0};
+	virConnectPtr conn;
+	memset(buf, '\0', 1024);
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	} else 
+		printf("success to open connection to qemu:///system\n");
+
+	if(virConnectListDomains(conn, doms, 100) == -1) {
+		printf("failed to list connect domains\n");
+		sprintf(buf, "failed to list connect domains");
+		return;
+	}
+	if(doms[0] == 0) {
+		printf("no domain is running\n");
+		sprintf(buf,"no domain is running\n");
+		virConnectClose(conn);
+		return;
+	}
+	virDomainPtr dom;
+	for(i = 0; i < 100; i++) {
+		//printf("doms[%d] = %d\t", i, doms[i]);
+		fflush(stdout);
+		if(doms[i] == 0)
+			break;
+		dom = virDomainLookupByID(conn, doms[i]);
+		if(dom == NULL)
+			printf("dom error\n");
+		else 
+			vir_name = virDomainGetName(dom);
+
+		if(virDomainSuspend(dom) == -1) {
+			printf("suspend %s failed\n", vir_name);
+			sprintf(buf, "suspend %s failed\n", vir_name);
+			virConnectClose(conn);
+			return;
+		} else {
+			printf("suspend %s successfully\n", vir_name);
+			sprintf(&buf[strlen(buf)], "suspend %s successfully\n", vir_name);
+		}
+
+		
+	}
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+
+}
+
+void suspend(int number)
+{
+	int * state = malloc(sizeof(int));
+
+	char * vir_name;
+	char number_buf[10] = {0};
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///session\n");
+		sprintf(buf, "failed to open connection to qemu:///session");
+		return;
+	} else 
+		printf("success to open connection to qemu:///session\n");
+
+	sprintf(number_buf, "demo%d", number);
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
+	if(dom == NULL)
+		printf("dom error\n");
+	else 
+		vir_name = virDomainGetName(dom);
+	
+	if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+		sprintf(buf, "get domain state failed\n");
+		return;
+	}
+	printf("state : %d\n", *state);
+	if(*state != 1) {
+		sprintf(buf, "%s is not running\n", number_buf);
+		virConnectClose(conn);
+		return;
+	}
+	
+	if(virDomainSuspend(dom) == -1) {
+		printf("suspend %s failed\n", vir_name);
+		sprintf(buf, "suspend %s failed\n", vir_name);
+		virConnectClose(conn);
+		return;
+	} else {
+		printf("suspend %s successfully\n", vir_name);
+		sprintf(buf, "suspend %s successfully\n", vir_name);
+	}
+	
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+}
+
+
+
+void shutdown_all()
+{
+	char * vir_name;
+	int i;
+	int doms[100]={0};
+	virConnectPtr conn;
+	memset(buf, '\0', 1024);
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	}
+	printf("success to open connection to qemu:///system\n");
+
+	if(virConnectListDomains(conn, doms, 100) == -1) {
+		printf("failed to list connect domains\n");
+		sprintf(buf, "failed to list connect domains");
+		return;
+	}
+	if(doms[0] == 0) {
+		printf("no domain is running\n");
+		sprintf(buf,"no domain is running\n");
+		virConnectClose(conn);
+		return;
+	}
+	virDomainPtr dom;
+	for(i = 0; i < 100; i++) {
+		//printf("doms[%d] = %d\t", i, doms[i]);
+		fflush(stdout);
+		if(doms[i] == 0)
+			break;
+		dom = virDomainLookupByID(conn, doms[i]);
+		if(dom == NULL)
+			printf("dom error\n");
+		else 
+			vir_name = virDomainGetName(dom);
+
+		if(virDomainShutdown(dom) == -1) {
+			printf("shutdown %s failed\n", vir_name);
+			sprintf(buf, "shutdown %s failed\n", vir_name);
+			virConnectClose(conn);
+			return;
+		} else {
+			printf("shutdown %s successfully\n", vir_name);
+			sprintf(&buf[strlen(buf)], "shutdown %s successfully\n", vir_name);
+		}
+
+		
+	}
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+
+}
+
+void shut_down(int number)
+{
+	int * state = malloc(sizeof(int));
+
+	char * vir_name;
+	char number_buf[10] = {0};
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///session\n");
+		sprintf(buf, "failed to open connection to qemu:///session");
+		return;
+	} else 
+		printf("success to open connection to qemu:///session\n");
+
+	sprintf(number_buf, "demo%d", number);
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
+	if(dom == NULL)
+		printf("dom error\n");
+	else 
+		vir_name = virDomainGetName(dom);
+	
+	if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+		sprintf(buf, "get domain state failed\n");
+		return;
+	}
+	//printf("state : %d\n", *state);
+	if(*state != 1) {
+		sprintf(buf, "%s is not running\n", number_buf);
+		virConnectClose(conn);
+		return;
+	}
+	
+	if(virDomainShutdown(dom) == -1) {
+		printf("shutdown %s failed\n", vir_name);
+		sprintf(buf, "shutdown %s failed\n", vir_name);
+		virConnectClose(conn);
+		return;
+	} else {
+		printf("shutdown %s successfully\n", vir_name);
+		sprintf(buf, "shutdown %s successfully\n", vir_name);
+	}
+	
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+}
+
+void destroy_all()
+{
+	char * vir_name;
+	int i;
+	int doms[100]={0};
+	virConnectPtr conn;
+	memset(buf, '\0', 1024);
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	}
+	printf("success to open connection to qemu:///system\n");
+
+	if(virConnectListDomains(conn, doms, 100) == -1) {
+		printf("failed to list connect domains\n");
+		sprintf(buf, "failed to list connect domains");
+		return;
+	}
+	if(doms[0] == 0) {
+		printf("no domain is running\n");
+		sprintf(buf,"no domain is running\n");
+		virConnectClose(conn);
+		return;
+	}
+	virDomainPtr dom;
+	for(i = 0; i < 100; i++) {
+		//printf("doms[%d] = %d\t", i, doms[i]);
+		fflush(stdout);
+		if(doms[i] == 0)
+			break;
+		dom = virDomainLookupByID(conn, doms[i]);
+		if(dom == NULL)
+			printf("dom error\n");
+		else 
+			vir_name = virDomainGetName(dom);
+
+		if(virDomainDestroy(dom) == -1) {
+			printf("destroy %s failed\n", vir_name);
+			sprintf(buf, "destroy %s failed\n", vir_name);
+			virConnectClose(conn);
+			return;
+		} else {
+			printf("destroy %s successfully\n", vir_name);
+			sprintf(&buf[strlen(buf)], "destroy %s successfully\n", vir_name);
+		}
+
+		
+	}
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+
+}
+
+void destroy(int number)
+{
+	int * state = malloc(sizeof(int));
+
+	char * vir_name;
+	char number_buf[10] = {0};
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///session\n");
+		sprintf(buf, "failed to open connection to qemu:///session");
+		return;
+	} else 
+		printf("success to open connection to qemu:///session\n");
+
+	sprintf(number_buf, "demo%d", number);
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
+	if(dom == NULL)
+		printf("dom error\n");
+	else 
+		vir_name = virDomainGetName(dom);
+	
+	if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+		sprintf(buf, "get domain state failed\n");
+		return;
+	}
+	
+	//printf("state : %d\n", *state);
+	if(*state != 1) {
+		sprintf(buf, "%s is not running\n", number_buf);
+		virConnectClose(conn);
+		return;
+	}
+	
+	if(virDomainDestroy(dom) == -1) {
+		printf("destroy %s failed\n", vir_name);
+		sprintf(buf, "destroy %s failed\n", vir_name);
+		virConnectClose(conn);
+		return;
+	} else {
+		printf("destroy %s successfully\n", vir_name);
+		sprintf(buf, "destroy %s successfully\n", vir_name);
+	}
+	
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+}
+
 void netflow_all()
 {
 	long long rx_bytes = 0;
@@ -55,12 +491,9 @@ void netflow_all()
 	char * vnet;
 	int i;
 	int doms[100]={0};
-	//printf("in list_all\n");
 	virConnectPtr conn;
 	memset(buf, '\0', 1024);
 	conn = virConnectOpen("qemu:///system");
-#if 1  
-	//printf("haha\n");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///session\n");
 		sprintf(buf, "failed to open connection to qemu:///session");
@@ -80,7 +513,6 @@ void netflow_all()
 	}
 
 	virDomainPtr dom;
-	//virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
 	virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct)) ;
 	for(i = 0; i < 100; i++) {
 	
@@ -89,20 +521,10 @@ void netflow_all()
 		if(doms[i] == 0)
 			break;
 		
-		//dom = virDomainLookupByID(conn, i+3);
 
 		dom = virDomainLookupByID(conn, doms[i]);
 		if(dom == NULL)
 			printf("dom error\n");
-		/*  
-		if(virDomainGetInfo(dom, dominfo) != 0) {
-			printf("get domain info failed.\n");
-			sprintf(buf, "get domain info failed");
-			return;
-		}
-		printf("%s :\nstate: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", virDomainGetName(dom), dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
-		sprintf(&buf[strlen(buf)], "%s :\nstate: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", virDomainGetName(dom), dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
-		*/
 		vnet = getDomainInterfacePath(dom);
 		//printf("vnet = %s\n", vnet);
 		if(virDomainInterfaceStats(dom, vnet, stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
@@ -115,12 +537,9 @@ void netflow_all()
 		rx_bytes += stats->rx_bytes;
 		tx_bytes += stats->tx_bytes;
 		printf("rx_bytes: %lld, tx_bytes: %lld\n", rx_bytes, tx_bytes);
-		//sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);	
 	}
 	sprintf(buf, "rx_bytes: %lld, tx_bytes: %lld\n", rx_bytes, tx_bytes);	
 
-	//free(dominfo);
-#endif
 	virConnectClose(conn);
 
 	printf("success close conn\n");
@@ -131,10 +550,9 @@ void netflow_all()
 
 void netflow(int number)
 {
-	int * state;
+	int * state = malloc(sizeof(int));
 	char * vnet;
 	char number_buf[10] = {0};
-	//printf("in list_virt\n");
 	virConnectPtr conn;
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
@@ -158,22 +576,9 @@ void netflow(int number)
 		sprintf(buf, "%s is not running\n", number_buf);
 		return;
 	}
-	/*
-	virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
-	if(virDomainGetInfo(dom, dominfo) != 0) {
-		printf("get domain info failed.\n");
-		sprintf(buf, "get domain info failed.");
-		return;
-	}
 	
-	printf("state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
-
-	sprintf(buf, "state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, (dominfo->cpuTime)/1000000000);
-	
-	*/
 	vnet = getDomainInterfacePath(dom);
 
-	//printf("vnet = %s\n", vnet);
 	virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct));
 	if(virDomainInterfaceStats(dom, vnet, stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
 		printf("get interface info failed\n");
@@ -198,7 +603,6 @@ void list_all()
 	char * vnet;
 	int i;
 	int doms[100]={0};
-	//printf("in list_all\n");
 	virConnectPtr conn;
 	memset(buf, '\0', 1024);
 	conn = virConnectOpen("qemu:///system");
@@ -259,9 +663,9 @@ void list_all()
 
 }
 
-void list_virt(int number)
+void list(int number)
 {
-	int * state;
+	int * state = malloc(sizeof(int));
 	char * vnet;
 	char number_buf[10] = {0};
 	//printf("in list_virt\n");
@@ -284,7 +688,7 @@ void list_virt(int number)
 	}
 
 	//printf("state : %d\n", *state);
-	if(*state != 1) {
+	if((*state != 1) && (*state != 3)) {
 		sprintf(buf, "%s is not running\n", number_buf);
 		return;
 	}
@@ -311,10 +715,6 @@ void list_virt(int number)
 	} 
 	printf("rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
 	sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
-
-
-
-
 	
 	virDomainFree(dom);
 	virConnectClose(conn);
@@ -330,11 +730,11 @@ void create_virt(int number)
 	//printf("in create_virt\n");
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
-		printf("failed to open connection to qemu:///session\n");
-		sprintf(buf, "failed to open connection to qemu:///session");
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
 		return;
 	}
-	printf("success to open connection to qemu:///session\n");
+	printf("success to open connection to qemu:///system\n");
 
 	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
 	if(virDomainCreate(dom) < 0) {
@@ -406,13 +806,37 @@ void main()
 		else if((s = strstr(buf, "list"))) {
 			s += 5;
 			vir_num = atoi(s);
-			list_virt(vir_num);
+			list(vir_num);
 		} else if((s = strstr(buf, "netflowall")))
 			netflow_all();
 		else if((s = strstr(buf, "netflow"))) {
 			s += 8;
 			vir_num = atoi(s);
 			netflow(vir_num);
+		} else if((s = strstr(buf, "destroyall"))) 
+			destroy_all();
+		else if((s = strstr(buf, "destroy"))) {
+			s += 8;
+			vir_num = atoi(s);
+			destroy(vir_num);
+		} else if((s = strstr(buf, "shutdownall")))
+			shutdown_all();
+		else if((s = strstr(buf, "shutdown"))) {
+			s += 9;
+			vir_num = atoi(s);
+			shut_down(vir_num);
+		} else if((s = strstr(buf, "suspendall")))
+			suspend_all();
+		else if((s = strstr(buf, "suspend"))) {
+			s += 8;
+			vir_num = atoi(s);
+			suspend(vir_num);
+		} else if((s = strstr(buf, "resumeall"))) 
+			resume_all();
+		else if((s = strstr(buf, "resume"))) {
+			s += 7;
+			vir_num = atoi(s);
+			resume(vir_num);
 		}
 
 		write(new_fd, buf, 1024);

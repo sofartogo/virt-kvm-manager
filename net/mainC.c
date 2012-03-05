@@ -44,23 +44,18 @@ void get_network_flow(char buf[1024], long long * rx_bytes, long long * tx_bytes
 	char *s1;
 	char *s2;
 	s1 = strstr(buf, "rx_bytes");
-	//if(!(s1 = strstr(buf, "rx_bytes"))) {
-	//	cb_quit();
-	//}
 	s1 += 10;
 	for(s2 = s1; *s2 != ','; s2 ++)
 		;
 	*s2 = '\0';
 	*rx_bytes = atoll(s1);
 	*s2 = ',';
-	//printf("rx_bytes = %lld\n", *rx_bytes);
 	s1 = strstr(buf, "tx_bytes");
 	s1 += 10;
 	for(s2 = s1; *s2 != '\n'; s2 ++)
 		;
 	*s2 = '\0';
 	*tx_bytes = atoll(s1);
-	//printf("tx_bytes = %lld\n", *tx_bytes);
 
 }
 
@@ -82,7 +77,6 @@ int cal_load1(double * rflow, double * tflow, double * rflow_total, double * tfl
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
-	//printf("netflow: %d\n", number);
 	sprintf(buff, "netflowall");
   
 	if((he = gethostbyname("localhost")) == NULL) {
@@ -388,14 +382,89 @@ gint Repaint (gpointer da)
 	return TRUE; 
 }
 
-
-/* *******************  netflowall  ******************** */
-
-int netflowall(int argc, char ** argv) 
+/* *******************  resumeall  ******************** */
+void resumeall(int argc, char ** argv)
 {
-	/*  
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	sprintf(buf, "resumeall");
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("resumeall socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
+/* *********************  resume  ********************** */
+static char resume_doc[] = 
+	"list: list info of virtual machine\n"
+	"--number must be provided.";
+
+static char resume_args_doc[] = 
+	"";
+
+static struct argp_option resume_options[] = {
+	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_resume_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'n' :
+		number = atoi(arg);
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp resume_argp = {resume_options, parse_resume_opt,
+	resume_args_doc, resume_doc, NULL, NULL, NULL};
+
+void resume(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
 	int idx;
-	int err = argp_parse(&netflow_argp, argc, argv, 
+	int err = argp_parse(&resume_argp, argc, argv, 
 			ARGP_IN_ORDER, &idx, NULL);
 	if (err != 0) {
 		printf("argp_parse error: %d\n", err);
@@ -404,9 +473,440 @@ int netflowall(int argc, char ** argv)
 	if(number < 1 || number > 100) {
 		printf("n is between 1 and 100\n");
 		exit(-1);
+	} 
+
+	sprintf(buf, "resume %d", number);
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
 	}
 
-	*/
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("resume socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s", buf);
+	close(sockfd);
+}
+
+
+
+/* *******************  suspendall  ******************** */
+void suspendall(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	sprintf(buf, "suspendall");
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("suspendall socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
+/* *********************  suspend  ********************** */
+static char suspend_doc[] = 
+	"list: list info of virtual machine\n"
+	"--number must be provided.";
+
+static char suspend_args_doc[] = 
+	"";
+
+static struct argp_option suspend_options[] = {
+	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_suspend_opt(int key, char * arg, 
+		struct argp_state * state /*__attribute__((unused))*/ )
+{
+	switch (key) {
+	case 'n' :
+		number = atoi(arg);
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp suspend_argp = {suspend_options, parse_suspend_opt,
+	suspend_args_doc, suspend_doc, NULL, NULL, NULL};
+
+void suspend(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	int idx;
+	int err = argp_parse(&suspend_argp, argc, argv, 
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	if(number < 1 || number > 100) {
+		printf("n is between 1 and 100\n");
+		exit(-1);
+	} 
+
+	sprintf(buf, "suspend %d", number);
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("suspend socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s", buf);
+	close(sockfd);
+}
+
+
+
+/* *******************  shutdownall  ******************** */
+void shutdownall(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	sprintf(buf, "shutdownall");
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("shutdownall socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
+/* *********************  shutdown  ********************** */
+static char shutdown_doc[] = 
+	"list: list info of virtual machine\n"
+	"--number must be provided.";
+
+static char shutdown_args_doc[] = 
+	"";
+
+static struct argp_option shutdown_options[] = {
+	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_shutdown_opt(int key, char * arg, 
+		struct argp_state * state /*__attribute__((unused))*/ )
+{
+	switch (key) {
+	case 'n' :
+		number = atoi(arg);
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp shutdown_argp = {shutdown_options, parse_shutdown_opt,
+	shutdown_args_doc, shutdown_doc, NULL, NULL, NULL};
+
+void shut_down(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	int idx;
+	int err = argp_parse(&shutdown_argp, argc, argv, 
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	if(number < 1 || number > 100) {
+		printf("n is between 1 and 100\n");
+		exit(-1);
+	} 
+
+	sprintf(buf, "shutdown %d", number);
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("shutdown socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s", buf);
+	close(sockfd);
+}
+
+
+/* *******************  destroyall  ******************** */
+void destroyall(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	sprintf(buf, "destroyall");
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("destroyall socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
+/* *********************  destroy  ********************** */
+static char destroy_doc[] = 
+	"list: list info of virtual machine\n"
+	"--number must be provided.";
+
+static char destroy_args_doc[] = 
+	"";
+
+static struct argp_option destroy_options[] = {
+	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_destroy_opt(int key, char * arg, 
+		struct argp_state * state /*__attribute__((unused))*/ )
+{
+	switch (key) {
+	case 'n' :
+		number = atoi(arg);
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp destroy_argp = {destroy_options, parse_destroy_opt,
+	destroy_args_doc, destroy_doc, NULL, NULL, NULL};
+
+void destroy(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[1024] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	int idx;
+	int err = argp_parse(&destroy_argp, argc, argv, 
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	if(number < 1 || number > 100) {
+		printf("n is between 1 and 100\n");
+		exit(-1);
+	} 
+
+	sprintf(buf, "destroy %d", number);
+  
+	if((he = gethostbyname("localhost")) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("destroy socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s", buf);
+	close(sockfd);
+}
+
+/* *******************  netflowall  ******************** */
+
+int netflowall(int argc, char ** argv) 
+{
 
 	is_netflowall = 1;
 	printf("is_netflowall = %d\n", is_netflowall);
@@ -524,24 +1024,7 @@ void listall(int argc, char ** argv)
 	char buf[1024] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
-/*
-	int idx;
-	int err = argp_parse(&list_argp, argc, argv, 
-			ARGP_IN_ORDER, &idx, NULL);
-	if (err != 0) {
-		printf("argp_parse error: %d\n", err);
-		exit(-1);
-	}
-	if(number < 1 || number > 100) {
-		printf("n is between 1 and 100\n");
-		exit(-1);
-	} 
-
-	printf("list: %d\n", number);
-*/
 	sprintf(buf, "listall");
-	//if(strcmp(buf, "listall") == 0) 
-	//	printf("buf is listall\n");
   
 	if((he = gethostbyname("localhost")) == NULL) {
 		perror("gethostbyname");
@@ -627,10 +1110,7 @@ void list(int argc, char ** argv)
 		exit(-1);
 	} 
 
-	//printf("list: %d\n", number);
 	sprintf(buf, "list %d", number);
-	//if(strcmp(buf, "list 1") == 0) 
-	//	printf("buf is list 1\n");
   
 	if((he = gethostbyname("localhost")) == NULL) {
 		perror("gethostbyname");
@@ -663,8 +1143,6 @@ void list(int argc, char ** argv)
 
 	buf[nbytes] = '\0';
 	printf("%s", buf);
-	//get_network_flow(buf, &rx_bytes, &tx_bytes);
-	//printf("rx_bytes = %lld, tx_bytes = %lld\n", rx_bytes, tx_bytes);
 	close(sockfd);
 }
 
@@ -715,10 +1193,7 @@ void create(int argc, char ** argv)
 		printf("n is between 1 and 100\n");
 		exit(-1);
 	} 
-	//printf("create %d\n", number);
 	sprintf(buf, "create %d", number);
-	//if(strcmp(buf, "create 1") == 0) 
-	//	printf("buf is create 1\n");
   
 	if((he = gethostbyname("localhost")) == NULL) {
 		perror("gethostbyname");
@@ -761,7 +1236,16 @@ static void usage(const char * arg)
 	printf("\t%s create -n (1--100)\n", arg);
 	printf("\t%s list -n (1--100)\n", arg);
 	printf("\t%s netflow -n (1--100)\n", arg);
+	printf("\t%s destroy -n (1--100)\n", arg);
+	printf("\t%s shutdown -n (1--100)\n", arg);
+	printf("\t%s suspend -n (1--100)\n", arg);
+	printf("\t%s resume -n (1--100)\n", arg);
 	printf("\t%s listall\n", arg);
+	printf("\t%s netflowall\n", arg);
+	printf("\t%s destroyall\n", arg);
+	printf("\t%s shutdownall\n", arg);
+	printf("\t%s suspendall\n", arg);
+	printf("\t%s resumeall\n", arg);
 	exit(-1);
 }
 
@@ -781,7 +1265,24 @@ int main(int argc, char **argv)
 		netflow(argc - 1, &argv[1]);
 	} else if (strcmp(argv[1], "netflowall") == 0) {
 		netflowall(argc - 1, &argv[1]);
-	} else
+	} else if (strcmp(argv[1], "destroyall") == 0) {
+		destroyall(argc - 1, &argv[1]);
+	} else if (strcmp(argv[1], "destroy") == 0) {
+		destroy(argc - 1, &argv[1]);
+	} else if (strcmp(argv[1], "shutdownall") == 0) {
+		shutdownall(argc - 1, &argv[1]);
+	} else if (strcmp(argv[1], "shutdown") == 0) {
+		shut_down(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "suspendall") == 0) {
+		suspendall(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "suspend") == 0) {
+		suspend(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "resumeall") == 0) {
+		resumeall(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "resume") == 0) {
+		resume(argc - 1, &argv[1]);
+	}
+	else
 		usage(argv[0]);
 	return 0;
 }
