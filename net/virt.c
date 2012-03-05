@@ -24,6 +24,9 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
@@ -45,13 +48,159 @@ char * getDomainInterfacePath(virDomainPtr dom)
 	return ret;
 }
 
+void netflow_all()
+{
+	long long rx_bytes = 0;
+	long long tx_bytes = 0;
+	char * vnet;
+	int i;
+	int doms[100]={0};
+	//printf("in list_all\n");
+	virConnectPtr conn;
+	memset(buf, '\0', 1024);
+	conn = virConnectOpen("qemu:///system");
+#if 1  
+	//printf("haha\n");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///session\n");
+		sprintf(buf, "failed to open connection to qemu:///session");
+		return;
+	}
+	printf("success to open connection to qemu:///session\n");
+	if(virConnectListDomains(conn, doms, 100) == -1) {
+		printf("failed to list connect domains\n");
+		sprintf(buf, "failed to list connect domains");
+		return;
+	}
+	if(doms[0] == 0) {
+		printf("no domain is running\n");
+		sprintf(buf,"no domain is running\n");
+		virConnectClose(conn);
+		return;
+	}
+
+	virDomainPtr dom;
+	//virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
+	virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct)) ;
+	for(i = 0; i < 100; i++) {
+	
+		printf("doms[%d] = %d\t", i, doms[i]);
+		fflush(stdout);
+		if(doms[i] == 0)
+			break;
+		
+		//dom = virDomainLookupByID(conn, i+3);
+
+		dom = virDomainLookupByID(conn, doms[i]);
+		if(dom == NULL)
+			printf("dom error\n");
+		/*  
+		if(virDomainGetInfo(dom, dominfo) != 0) {
+			printf("get domain info failed.\n");
+			sprintf(buf, "get domain info failed");
+			return;
+		}
+		printf("%s :\nstate: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", virDomainGetName(dom), dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
+		sprintf(&buf[strlen(buf)], "%s :\nstate: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", virDomainGetName(dom), dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
+		*/
+		vnet = getDomainInterfacePath(dom);
+		//printf("vnet = %s\n", vnet);
+		if(virDomainInterfaceStats(dom, vnet, stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
+			printf("get interface info failed\n");
+			sprintf(buf, "get interface info failed");
+			return;
+		}
+		
+		virDomainFree(dom);
+		rx_bytes += stats->rx_bytes;
+		tx_bytes += stats->tx_bytes;
+		printf("rx_bytes: %lld, tx_bytes: %lld\n", rx_bytes, tx_bytes);
+		//sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);	
+	}
+	sprintf(buf, "rx_bytes: %lld, tx_bytes: %lld\n", rx_bytes, tx_bytes);	
+
+	//free(dominfo);
+#endif
+	virConnectClose(conn);
+
+	printf("success close conn\n");
+	return ;
+
+}
+
+
+void netflow(int number)
+{
+	int * state;
+	char * vnet;
+	char number_buf[10] = {0};
+	//printf("in list_virt\n");
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///session\n");
+		sprintf(buf, "failed to open connection to qemu:///session");
+		return;
+	}
+	printf("success to open connection to qemu:///session\n");
+
+	sprintf(number_buf, "demo%d",number);
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
+	if(dom == NULL )
+		printf("dom error\n");
+	if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+		sprintf(buf, "get domain state failed\n");
+		return;
+	}
+
+	//printf("state : %d\n", *state);
+	if(*state != 1) {
+		sprintf(buf, "%s is not running\n", number_buf);
+		return;
+	}
+	/*
+	virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
+	if(virDomainGetInfo(dom, dominfo) != 0) {
+		printf("get domain info failed.\n");
+		sprintf(buf, "get domain info failed.");
+		return;
+	}
+	
+	printf("state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
+
+	sprintf(buf, "state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, (dominfo->cpuTime)/1000000000);
+	
+	*/
+	vnet = getDomainInterfacePath(dom);
+
+	//printf("vnet = %s\n", vnet);
+	virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct));
+	if(virDomainInterfaceStats(dom, vnet, stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
+		printf("get interface info failed\n");
+		sprintf(buf, "get interface info failed");
+		return;
+	} 
+	printf("rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
+	sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
+
+
+
+
+	
+	virDomainFree(dom);
+	virConnectClose(conn);
+
+	return ;
+}
+
 void list_all()
 {
 	char * vnet;
 	int i;
 	int doms[100]={0};
-	printf("in list_all\n");
+	//printf("in list_all\n");
 	virConnectPtr conn;
+	memset(buf, '\0', 1024);
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///session\n");
@@ -69,6 +218,8 @@ void list_all()
 	virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
 	virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct)) ;
 	for(i = 0; i < 100; i++) {
+		//printf("doms[%d] = %d\t", i, doms[i]);
+		fflush(stdout);
 		if(doms[i] == 0)
 			break;
 		dom = virDomainLookupByID(conn, doms[i]);
@@ -80,17 +231,17 @@ void list_all()
 			return;
 		}
 		printf("%s :\nstate: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", virDomainGetName(dom), dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
-		sprintf(buf, "%s :\nstate: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", virDomainGetName(dom), dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
+		sprintf(&buf[strlen(buf)], "%s :\nstate: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", virDomainGetName(dom), dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
 		
 		vnet = getDomainInterfacePath(dom);
-		printf("vnet = %s\n", vnet);
+		//printf("vnet = %s\n", vnet);
 		if(virDomainInterfaceStats(dom, vnet, stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
 			printf("get interface info failed\n");
 			sprintf(buf, "get interface info failed");
 			return;
 		}
 		printf("rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
-		sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld", stats->rx_bytes, stats->tx_bytes);
+		sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
 
 		
 	}
@@ -104,7 +255,10 @@ void list_all()
 
 void list_virt(int number)
 {
-	printf("in list_virt\n");
+	int * state;
+	char * vnet;
+	char number_buf[10] = {0};
+	//printf("in list_virt\n");
 	virConnectPtr conn;
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
@@ -114,10 +268,20 @@ void list_virt(int number)
 	}
 	printf("success to open connection to qemu:///session\n");
 
-
-	virDomainPtr dom = virDomainLookupByName(conn, "demo1");
+	sprintf(number_buf, "demo%d",number);
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
 	if(dom == NULL )
 		printf("dom error\n");
+	if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+		sprintf(buf, "get domain state failed\n");
+		return;
+	}
+
+	//printf("state : %d\n", *state);
+	if(*state != 1) {
+		sprintf(buf, "%s is not running\n", number_buf);
+		return;
+	}
 	virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
 	if(virDomainGetInfo(dom, dominfo) != 0) {
 		printf("get domain info failed.\n");
@@ -126,21 +290,26 @@ void list_virt(int number)
 	}
 	
 	printf("state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
+
 	sprintf(buf, "state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, (dominfo->cpuTime)/1000000000);
 	
+
+	vnet = getDomainInterfacePath(dom);
+
+	printf("vnet = %s\n", vnet);
 	virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct));
-	if(virDomainInterfaceStats(dom, "vnet0", stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
+	if(virDomainInterfaceStats(dom, vnet, stats, sizeof(virDomainInterfaceStatsStruct)) != 0) {
 		printf("get interface info failed\n");
 		sprintf(buf, "get interface info failed");
 		return;
 	} 
 	printf("rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
-	sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld", stats->rx_bytes, stats->tx_bytes);
+	sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
 
 
 
 
-
+	
 	virDomainFree(dom);
 	virConnectClose(conn);
 
@@ -149,8 +318,10 @@ void list_virt(int number)
 
 void create_virt(int number)
 {
+	char number_buf[10] = {0};
+	sprintf(number_buf, "demo%d", number);
 	virConnectPtr conn;
-	printf("in create_virt\n");
+	//printf("in create_virt\n");
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///session\n");
@@ -159,7 +330,7 @@ void create_virt(int number)
 	}
 	printf("success to open connection to qemu:///session\n");
 
-	virDomainPtr dom = virDomainLookupByName(conn, "demo1");
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
 	if(virDomainCreate(dom) < 0) {
 		virDomainFree(dom);
 		printf("fail to boot guest.\n");
@@ -167,7 +338,7 @@ void create_virt(int number)
 		return;
 	}
 	printf("guest %s has boot.\n", virDomainGetName(dom));
-	sprintf(buf, "success to create 1");
+	sprintf(buf, "guest %s has boot.", virDomainGetName(dom));
 	virDomainFree(dom);
 	virConnectClose(conn);
 	return;
@@ -175,6 +346,7 @@ void create_virt(int number)
 
 void main()
 {
+	int vir_num;
 	int nbytes;
 	int sockfd, new_fd;
 	struct sockaddr_in srvaddr;
@@ -185,6 +357,9 @@ void main()
 		perror("socket error");
 		exit(1);
 	}
+
+	int on = 1;
+	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 	bzero(&srvaddr, sizeof(srvaddr));
 	/*用自己的ip地址和端口信息填充一个internet套接字地址结构*/
 	srvaddr.sin_family = AF_INET;                 
@@ -213,14 +388,26 @@ void main()
 			perror("read error");
 			exit(-1);
 		}
-		printf("%s\n", buf);
+		//printf("%s\n", buf);
 		/*向客户起写数据*/
-		if(strcmp(buf, "create 1") == 0)
-			create_virt(1);
-		else if( strcmp(buf, "list 1") == 0)
-			list_virt(1);
-		else if(strcmp(buf, "listall") == 0)
+		char *s;
+		if((s = strstr(buf, "create"))) {
+			s += 7;
+			vir_num = atoi(s);
+			create_virt(vir_num);
+		} else if((s = strstr(buf, "listall")))
 			list_all();
+		else if((s = strstr(buf, "list"))) {
+			s += 5;
+			vir_num = atoi(s);
+			list_virt(vir_num);
+		} else if((s = strstr(buf, "netflowall")))
+			netflow_all();
+		else if((s = strstr(buf, "netflow"))) {
+			s += 8;
+			vir_num = atoi(s);
+			netflow(vir_num);
+		}
 
 		write(new_fd, buf, 1024);
 		close(new_fd);

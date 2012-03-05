@@ -31,22 +31,13 @@
 #define PORT 3001
 #define MAXDATASIZE 5000
 
-int is_netflowall = 0;
 int number;
-
-static int timer; 
-static struct timeval startTime;
-static struct timeval endTime;
-static int flag = 1;
 
 void get_network_flow(char buf[1024], long long * rx_bytes, long long * tx_bytes)
 {
 	char *s1;
 	char *s2;
 	s1 = strstr(buf, "rx_bytes");
-	//if(!(s1 = strstr(buf, "rx_bytes"))) {
-	//	cb_quit();
-	//}
 	s1 += 10;
 	for(s2 = s1; *s2 != ','; s2 ++)
 		;
@@ -65,95 +56,18 @@ void get_network_flow(char buf[1024], long long * rx_bytes, long long * tx_bytes
 }
 
 
+/* *******************  netflow  ******************** */
+static int timer; 
+static struct timeval startTime;
+static struct timeval endTime;
+static float testnum = 1;
 void cb_quit() 
 { 
-	is_netflowall = 0;
 	gtk_timeout_remove (timer); 
 	gtk_main_quit(); 
-}
+} 
 
-
-int cal_load1(double * rflow, double * tflow, double * rflow_total, double * tflow_total) 
-{ 	
-	long long  rx_bytes = 0;
-	long long  tx_bytes = 0;
-	int  sockfd, nbytes;
-	char buff[1024] = {0};
-	struct hostent *he;
-	struct sockaddr_in srvaddr;
-
-	//printf("netflow: %d\n", number);
-	sprintf(buff, "netflowall");
-  
-	if((he = gethostbyname("localhost")) == NULL) {
-		perror("gethostbyname");
-		exit(-1);
-	}
-
-	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		perror("netflow socket error");
-		exit(-1);
-	}
-	bzero(&srvaddr, sizeof(srvaddr));
-
-	srvaddr.sin_family = AF_INET;
-	srvaddr.sin_port = htons(PORT);
-	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
-
-	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
-		perror("connect error");
-		exit(-1);
-	}
-
-	if(write(sockfd, buff, strlen(buff)) == -1) {
-		perror("send error");
-		exit(-1);
-	}
-
-	if((nbytes = read(sockfd, buff, MAXDATASIZE)) == -1) {
-			perror("read error");
-			exit(-1);
-	}
-	buff[nbytes] = '\0';
-	if(!(strstr(buff, "rx_bytes"))) {
-		cb_quit();
-		printf("%s", buff);
-		return;
-	}
-	//printf("%s", buf);
-	get_network_flow(buff, &rx_bytes, &tx_bytes);
-	printf("rx_bytes = %lld, tx_bytes = %lld\n", rx_bytes, tx_bytes);
-	//printf("hoho\n");
-	close(sockfd);
-
-	static long pre_rtraffic, pre_ttraffic;
-	long rtraffic, ttraffic;
-	long d_rtraffic, d_ttraffic;
-	/*int Time;
-	if (gettimeofday(&endTime, NULL) == -1) {
-   	printf("Failed to get start time\n");
-	}
-	Time = 1000000 * (endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec);
-	startTime = endTime;
-	*/
-	//calculate r netflow  
-	rtraffic = rx_bytes;
-	d_rtraffic  = rtraffic - pre_rtraffic;
-	pre_rtraffic = rtraffic;
-	*rflow = d_rtraffic/(1 * 1024);
-	*rflow_total = rtraffic / 1024;
-
-	//calculate t netflow  
-	ttraffic = tx_bytes;
-	d_ttraffic  = ttraffic - pre_ttraffic;
-	pre_ttraffic = ttraffic;
-	*tflow = d_ttraffic/(1 * 1024);
-	*tflow_total = ttraffic / 1024;	
-
-	return 1;
-}
-
-int cal_load (double * rflow, double * tflow, double * rflow_total, double * tflow_total) 
+float cal_load (void) 
 { 	
 	long long  rx_bytes, tx_bytes;
 	int  sockfd, nbytes;
@@ -193,45 +107,61 @@ int cal_load (double * rflow, double * tflow, double * rflow_total, double * tfl
 			perror("read error");
 			exit(-1);
 	}
+
 	buff[nbytes] = '\0';
-	if(!(strstr(buff, "rx_bytes"))) {
-		cb_quit();
-		printf("%s", buff);
-		return;
-	}
 	//printf("%s", buf);
 	get_network_flow(buff, &rx_bytes, &tx_bytes);
 	printf("rx_bytes = %lld, tx_bytes = %lld\n", rx_bytes, tx_bytes);
 	close(sockfd);
 
-	static long pre_rtraffic, pre_ttraffic;
-	long rtraffic, ttraffic;
-	long d_rtraffic, d_ttraffic;
-	/*int Time;
+
+	FILE * fp; 
+	static long pre_user, pre_nice, pre_system, pre_idle;  
+	long user, nice, system, idle; 
+	long d_user, d_nice, d_system, d_idle; 
+	static long total; 
+	float scale; 
+	char buf[1024]; 
+
+	if ((fp = fopen ("/proc/stat", "r")) != NULL){ 
+		while (fgets (buf, sizeof(buf), fp)){ 
+			if( *buf == 'c' && *(buf+1) == 'p') break; 
+		} 
+		fclose (fp); 
+	} 
+	else 
+		return 0.0; 
+
+	static long pre_traffic;
+	long traffic;
+	long d_traffic;
+
+	int Time;
+
 	if (gettimeofday(&endTime, NULL) == -1) {
    	printf("Failed to get start time\n");
 	}
 	Time = 1000000 * (endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec);
 	startTime = endTime;
-	*/
-	//calculate r netflow  
-	rtraffic = rx_bytes;
-	d_rtraffic  = rtraffic - pre_rtraffic;
-	pre_rtraffic = rtraffic;
-	*rflow = d_rtraffic/(1 * 1024);
-	*rflow_total = rtraffic / 1024;
+	sscanf(buf, "cpu %ld %ld %ld %ld", &user, &nice, &system, &idle); 
+	//printf("user:%ld nice:%ld system:%ld idle:%ld \n", user, nice ,system ,idle);
 
-	//calculate t netflow  
-	ttraffic = tx_bytes;
-	d_ttraffic  = ttraffic - pre_ttraffic;
-	pre_ttraffic = ttraffic;
-	*tflow = d_ttraffic/(1 * 1024);
-	*tflow_total = ttraffic / 1024;	
+	//calculate delta value  
 
-	return 1;
+	testnum += 10;
+	//traffic = testnum;
+	
+	//d_traffic = traffic - pre_traffic;
+	d_traffic  = 1;
+
+
+
+
+	pre_traffic = traffic;
+
+	return d_traffic/0.2;//(d_traffic * 1000000)/ Time;
+
 }
-
-
 
 gint Repaint (gpointer da) 
 { 
@@ -246,9 +176,8 @@ gint Repaint (gpointer da)
 	static unsigned tcoory[401]; 
 	int da_width, da_height; 
 	int x; 
-	//double load; 
+	float load; 
 	char buf[30]; 
-	double rflow, tflow, rflow_total, tflow_total;
 
 	//green rchart 
 	gc_rchart = gdk_gc_new (drawing_area->window); 
@@ -279,37 +208,22 @@ gint Repaint (gpointer da)
 	da_width = drawing_area->allocation.width; 
 	da_height = drawing_area->allocation.height; 
 	
-	// recieve & t
+	// recieve
 	gdk_draw_rectangle (drawable, drawing_area->style->white_gc, TRUE, 0, 0, da_width, 0.5 * da_height); 
-	gdk_draw_rectangle (tdrawable, drawing_area->style->white_gc, TRUE, 0, 201, da_width, 0.5 * da_height);
+
 	// chart line
 	for (x=0; x<400; x++) 
 		rcoory[x] = rcoory[x+1]; 
-	for (x=0; x<400; x++) 
-		tcoory[x] = tcoory[x+1]; 
-	if(is_netflowall) {
-		cal_load1(&rflow, &tflow, &rflow_total, &tflow_total);
-	} else
-		cal_load(&rflow, &tflow, &rflow_total, &tflow_total);
-	rcoory[x] = (int)(rflow * 0.01 * 0.5 * da_height); 
-	tcoory[x] = (int)(tflow * 0.01 * 0.5 * da_height); 
-	
-	if(flag){
-		rcoory[x] = 0; 
-		tcoory[x] = 0;
-		flag= 0;
-	//printf("hello!\n");
-	} 
-	//printf("rcoory = %d, tcoory = %d\n", rcoory[x], tcoory[x]);
+
+	load = cal_load();
+	rcoory[x] = (int)(load * 0.03 * da_height); 
+
 	for(x=0;x<da_width;x++){ 
 		gdk_draw_line (drawable, gc_rchart, x, 0.5 * da_height, x, 0.5 * da_height - rcoory[x]); 
 	} 
-	for(x=0;x<da_width;x++){ 
-		gdk_draw_line (tdrawable, gc_tchart, x, da_height, x, da_height - tcoory[x]); 
-	} 
 
 	// following code for drawing rtext 
-	sprintf (buf, "R Flow:%.1f kb/s", rflow ); 
+	sprintf (buf, "R Flow:%.1f kb/s", load ); 
 
 	PangoLayout *layout = gtk_widget_create_pango_layout( da, buf );
 	//set font
@@ -319,7 +233,7 @@ gint Repaint (gpointer da)
 	pango_font_description_free( fontdesc ); 
 	g_object_unref( layout ); 
 
-	sprintf (buf, "R Total flow:%.1f kb", rflow_total ); 
+	sprintf (buf, "R Total flow:%.1f kb", testnum ); 
 	PangoLayout *layout1 = gtk_widget_create_pango_layout( da, buf );
 	//set font
 	PangoFontDescription *fontdesc1 = pango_font_description_from_string( "Luxi Mono 12" ); 
@@ -328,33 +242,14 @@ gint Repaint (gpointer da)
 	pango_font_description_free( fontdesc1 ); 
 	g_object_unref( layout1 ); 
 
-	// following code for drawing ttext 
-	sprintf (buf, "T Flow:%.1f kb/s", tflow ); 
-
-	PangoLayout *layout2 = gtk_widget_create_pango_layout( da, buf );
-	//set font
-	PangoFontDescription *fontdesc2 = pango_font_description_from_string( "Luxi Mono 12" ); 
-	pango_layout_set_font_description( layout2, fontdesc2 ); 
-	gdk_draw_layout( drawable, gc_ttext, 5, 205, layout2 ); 
-	pango_font_description_free( fontdesc2 ); 
-	g_object_unref( layout2 ); 
-
-	sprintf (buf, "R Total flow:%.1f kb", tflow_total ); 
-	PangoLayout *layout3 = gtk_widget_create_pango_layout( da, buf );
-	//set font
-	PangoFontDescription *fontdesc3 = pango_font_description_from_string( "Luxi Mono 12" ); 
-	pango_layout_set_font_description( layout3, fontdesc3 ); 
-	gdk_draw_layout( drawable, gc_ttext, 180, 205, layout3 ); 
-	pango_font_description_free( fontdesc3 ); 
-	g_object_unref( layout3 ); 
-
-	/*// t
-	//	gdk_draw_rectangle (tdrawable, drawing_area->style->white_gc, TRUE, 0, 201, da_width, 0.5 * da_height); 
+	// 发送
+	gdk_draw_rectangle (tdrawable, drawing_area->style->white_gc, TRUE, 0, 201, da_width, 0.5 * da_height); 
 
 	// chart line
 	for (x=0; x<400; x++) 
 		tcoory[x] = tcoory[x+1]; 
- 
+
+	load = cal_load(); 
 	tcoory[x] = (int)(load * 0.05 * da_height); 
 
 	for(x=0;x<da_width;x++){ 
@@ -378,7 +273,7 @@ gint Repaint (gpointer da)
 	pango_layout_set_font_description( layout3, fontdesc3 ); 
 	gdk_draw_layout( drawable, gc_ttext, 180, 205, layout3 ); 
 	pango_font_description_free( fontdesc3 ); 
-	g_object_unref( layout3 ); */
+	g_object_unref( layout3 ); 
 
 	g_object_unref( G_OBJECT(gc_rchart) ); 
 	g_object_unref( G_OBJECT(gc_tchart) );
@@ -386,63 +281,7 @@ gint Repaint (gpointer da)
 	g_object_unref( G_OBJECT(gc_ttext) ); 
 
 	return TRUE; 
-}
-
-
-/* *******************  netflowall  ******************** */
-
-int netflowall(int argc, char ** argv) 
-{
-	/*  
-	int idx;
-	int err = argp_parse(&netflow_argp, argc, argv, 
-			ARGP_IN_ORDER, &idx, NULL);
-	if (err != 0) {
-		printf("argp_parse error: %d\n", err);
-		exit(-1);
-	}
-	if(number < 1 || number > 100) {
-		printf("n is between 1 and 100\n");
-		exit(-1);
-	}
-
-	*/
-
-	is_netflowall = 1;
-	printf("is_netflowall = %d\n", is_netflowall);
-	GtkWidget *window; 
-	GtkWidget *drawing_area; 
-
-	window = gtk_window_new (GTK_WINDOW_TOPLEVEL); 
-	gtk_window_set_title (GTK_WINDOW(window), "Network traffic"); 
-	drawing_area = gtk_drawing_area_new (); 
-	gtk_container_add (GTK_CONTAINER(window), drawing_area); 
-
-	gtk_signal_connect(GTK_OBJECT (window), "destroy", GTK_SIGNAL_FUNC(cb_quit), NULL); 
-
-	g_signal_connect( drawing_area, "expose_event", G_CALLBACK(Repaint), NULL ); 
- 
-	gtk_drawing_area_size (GTK_DRAWING_AREA(drawing_area), 400, 400); 
-
-	gtk_widget_show (drawing_area); 
-	gtk_widget_show(window); 
-	if (gettimeofday(&startTime, NULL) == -1) {
-   	printf("Failed to get start time\n");
-		return -1;
-	}
-	timer = gtk_timeout_add (1000, Repaint, (gpointer) drawing_area); 
-	gtk_main(); 
-
-	return 0; 
-}
-
-
-
-
-/* *******************  netflow  ******************** */
- 
-
- 
+} 
 
 
 static char netflow_doc[] = 
@@ -487,9 +326,6 @@ int netflow(int argc, char ** argv)
 		exit(-1);
 	}
 
-	
-
-
 	GtkWidget *window; 
 	GtkWidget *drawing_area; 
 
@@ -510,7 +346,7 @@ int netflow(int argc, char ** argv)
    	printf("Failed to get start time\n");
 		return -1;
 	}
-	timer = gtk_timeout_add (1000, Repaint, (gpointer) drawing_area); 
+	timer = gtk_timeout_add (200, Repaint, (gpointer) drawing_area); 
 	gtk_main(); 
 
 	return 0; 
@@ -779,8 +615,6 @@ int main(int argc, char **argv)
 		listall(argc - 1, &argv[1]);
 	} else if (strcmp(argv[1], "netflow") == 0) {
 		netflow(argc - 1, &argv[1]);
-	} else if (strcmp(argv[1], "netflowall") == 0) {
-		netflowall(argc - 1, &argv[1]);
 	} else
 		usage(argv[0]);
 	return 0;
