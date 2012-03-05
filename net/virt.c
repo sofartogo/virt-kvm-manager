@@ -214,6 +214,12 @@ void list_all()
 		sprintf(buf, "failed to list connect domains");
 		return;
 	}
+	if(doms[0] == 0) {
+		printf("no domain is running\n");
+		sprintf(buf,"no domain is running\n");
+		virConnectClose(conn);
+		return;
+	}
 	virDomainPtr dom;
 	virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
 	virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct)) ;
