@@ -33,7 +33,7 @@
 
 #define MYPORT 3001 /*开放的端口号*/
 #define BACKLOG 5  /*指定套接字可以接受的最大未接受客户机请求的数目*/
-char buf[1024] = {0};
+char buf[10240] = {0};
 
 
 char * getDomainInterfacePath(virDomainPtr dom)
@@ -55,7 +55,7 @@ void resume_all()
 	int i;
 	int doms[100]={0};
 	virConnectPtr conn;
-	memset(buf, '\0', 1024);
+	memset(buf, '\0', 10240);
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///system\n");
@@ -169,7 +169,7 @@ void suspend_all()
 	int i;
 	int doms[100]={0};
 	virConnectPtr conn;
-	memset(buf, '\0', 1024);
+	memset(buf, '\0', 10240);
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///system\n");
@@ -277,7 +277,7 @@ void shutdown_all()
 	int i;
 	int doms[100]={0};
 	virConnectPtr conn;
-	memset(buf, '\0', 1024);
+	memset(buf, '\0', 10240);
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///system\n");
@@ -383,7 +383,7 @@ void destroy_all()
 	int i;
 	int doms[100]={0};
 	virConnectPtr conn;
-	memset(buf, '\0', 1024);
+	memset(buf, '\0', 10240);
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///system\n");
@@ -492,7 +492,7 @@ void netflow_all()
 	int i;
 	int doms[100]={0};
 	virConnectPtr conn;
-	memset(buf, '\0', 1024);
+	memset(buf, '\0', 10240);
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///session\n");
@@ -604,7 +604,7 @@ void list_all()
 	int i;
 	int doms[100]={0};
 	virConnectPtr conn;
-	memset(buf, '\0', 1024);
+	memset(buf, '\0', 10240);
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
 		printf("failed to open connection to qemu:///session\n");
@@ -722,7 +722,39 @@ void list(int number)
 	return ;
 }
 
-void create_virt(int number)
+void create_all()
+{
+	int i;
+	char number_buf[10] = {0};
+	virConnectPtr conn;
+	//printf("in create_virt\n");
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	}
+	virDomainPtr dom;
+	printf("success to open connection to qemu:///system\n");
+	for(i = 1; i <= 100; i++) {
+		sprintf(number_buf, "demo%d", i);
+		dom = virDomainLookupByName(conn, number_buf);
+		if(virDomainCreate(dom) < 0) {
+			printf("fail to boot guest %s.\n", number_buf);
+			sprintf(&buf[strlen(buf)], "fail to boot guest %s.\n", number_buf);
+			continue;
+		}
+		printf("guest %s has boot.\n", virDomainGetName(dom));
+		sprintf(&buf[strlen(buf)], "guest %s has boot.\n", virDomainGetName(dom));
+	}
+
+	virDomainFree(dom);
+	virConnectClose(conn);
+	return;
+
+}
+
+void create(int number)
 {
 	char number_buf[10] = {0};
 	sprintf(number_buf, "demo%d", number);
@@ -790,17 +822,19 @@ void main()
 		}
 		printf("server: got connection from %s \n", inet_ntoa(cliaddr.sin_addr));
 		/*接受客户数据*/
-		if((nbytes = read(new_fd, buf, 1024)) == -1) {
+		if((nbytes = read(new_fd, buf, 10240)) == -1) {
 			perror("read error");
 			exit(-1);
 		}
 		//printf("%s\n", buf);
 		/*向客户起写数据*/
 		char *s;
-		if((s = strstr(buf, "create"))) {
+		if((s = strstr(buf, "createall"))) {
+			create_all();
+		} else if((s = strstr(buf, "create"))) {
 			s += 7;
 			vir_num = atoi(s);
-			create_virt(vir_num);
+			create(vir_num);
 		} else if((s = strstr(buf, "listall")))
 			list_all();
 		else if((s = strstr(buf, "list"))) {
@@ -839,10 +873,10 @@ void main()
 			resume(vir_num);
 		}
 
-		write(new_fd, buf, 1024);
+		write(new_fd, buf, 10240);
 		close(new_fd);
 		//close(sockfd);
-		memset(buf, 0, 1024);
+		memset(buf, 0, 10240);
 	}
     close(sockfd);
 }

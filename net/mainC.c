@@ -33,13 +33,14 @@
 
 int is_netflowall = 0;
 int number;
+const char * ip = NULL;
 
 static int timer; 
 static struct timeval startTime;
 static struct timeval endTime;
 static int flag = 1;
 
-void get_network_flow(char buf[1024], long long * rx_bytes, long long * tx_bytes)
+void get_network_flow(char buf[10240], long long * rx_bytes, long long * tx_bytes)
 {
 	char *s1;
 	char *s2;
@@ -73,13 +74,13 @@ int cal_load1(double * rflow, double * tflow, double * rflow_total, double * tfl
 	long long  rx_bytes = 0;
 	long long  tx_bytes = 0;
 	int  sockfd, nbytes;
-	char buff[1024] = {0};
+	char buff[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
 	sprintf(buff, "netflowall");
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -151,14 +152,14 @@ int cal_load (double * rflow, double * tflow, double * rflow_total, double * tfl
 { 	
 	long long  rx_bytes, tx_bytes;
 	int  sockfd, nbytes;
-	char buff[1024] = {0};
+	char buff[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
 	//printf("netflow: %d\n", number);
 	sprintf(buff, "netflow %d", number);
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -383,16 +384,56 @@ gint Repaint (gpointer da)
 }
 
 /* *******************  resumeall  ******************** */
+
+static char resumeall_doc[] = 
+	"resumeall: resume all the virtual machines of a node\n"
+	"--ip must be provided.";
+
+static char resumeall_args_doc[] = 
+	"";
+
+static struct argp_option resumeall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_resumeall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp resumeall_argp = {resumeall_options, parse_resumeall_opt, resumeall_args_doc, resumeall_doc, NULL, NULL, NULL};
+
 void resumeall(int argc, char ** argv)
 {
+	int idx;
+	int err = argp_parse(&resumeall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
 	sprintf(buf, "resumeall");
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -429,14 +470,15 @@ void resumeall(int argc, char ** argv)
 
 /* *********************  resume  ********************** */
 static char resume_doc[] = 
-	"list: list info of virtual machine\n"
-	"--number must be provided.";
+	"resume: resume virtual machine\n"
+	"--number, --ip must be provided.";
 
 static char resume_args_doc[] = 
 	"";
 
 static struct argp_option resume_options[] = {
 	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
 	{NULL, '\0', NULL, 0, NULL ,0},
 };
 
@@ -447,6 +489,9 @@ parse_resume_opt(int key, char * arg,
 	switch (key) {
 	case 'n' :
 		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
 		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -459,7 +504,7 @@ static struct argp resume_argp = {resume_options, parse_resume_opt,
 void resume(int argc, char ** argv)
 {
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
@@ -474,10 +519,15 @@ void resume(int argc, char ** argv)
 		printf("n is between 1 and 100\n");
 		exit(-1);
 	} 
+	
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
 
 	sprintf(buf, "resume %d", number);
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -514,16 +564,59 @@ void resume(int argc, char ** argv)
 
 
 /* *******************  suspendall  ******************** */
+static char suspendall_doc[] = 
+	"suspendall: suspend all the virtual machines of a node\n"
+	"--ip must be provided.";
+
+static char suspendall_args_doc[] = 
+	"";
+
+static struct argp_option suspendall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_suspendall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp suspendall_argp = {suspendall_options, parse_suspendall_opt, suspendall_args_doc, suspendall_doc, NULL, NULL, NULL};
+
+
+
 void suspendall(int argc, char ** argv)
 {
+	int idx;
+	int err = argp_parse(&suspendall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
+
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
 	sprintf(buf, "suspendall");
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -560,14 +653,15 @@ void suspendall(int argc, char ** argv)
 
 /* *********************  suspend  ********************** */
 static char suspend_doc[] = 
-	"list: list info of virtual machine\n"
-	"--number must be provided.";
+	"suspend: suspend virtual machine\n"
+	"--number, --ip must be provided.";
 
 static char suspend_args_doc[] = 
 	"";
 
 static struct argp_option suspend_options[] = {
 	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
 	{NULL, '\0', NULL, 0, NULL ,0},
 };
 
@@ -578,6 +672,9 @@ parse_suspend_opt(int key, char * arg,
 	switch (key) {
 	case 'n' :
 		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
 		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -590,7 +687,7 @@ static struct argp suspend_argp = {suspend_options, parse_suspend_opt,
 void suspend(int argc, char ** argv)
 {
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
@@ -606,9 +703,14 @@ void suspend(int argc, char ** argv)
 		exit(-1);
 	} 
 
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
 	sprintf(buf, "suspend %d", number);
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -645,16 +747,58 @@ void suspend(int argc, char ** argv)
 
 
 /* *******************  shutdownall  ******************** */
+static char shutdownall_doc[] = 
+	"shutdownall: shutdown all the virtual machines of a node\n"
+	"--ip must be provided.";
+
+static char shutdownall_args_doc[] = 
+	"";
+
+static struct argp_option shutdownall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_shutdownall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp shutdownall_argp = {shutdownall_options, parse_shutdownall_opt, shutdownall_args_doc, shutdownall_doc, NULL, NULL, NULL};
+
+
 void shutdownall(int argc, char ** argv)
 {
+	int idx;
+	int err = argp_parse(&shutdownall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
+
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
 	sprintf(buf, "shutdownall");
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -691,14 +835,15 @@ void shutdownall(int argc, char ** argv)
 
 /* *********************  shutdown  ********************** */
 static char shutdown_doc[] = 
-	"list: list info of virtual machine\n"
-	"--number must be provided.";
+	"shutdown: shutdown virtual machine\n"
+	"--number, --ip must be provided.";
 
 static char shutdown_args_doc[] = 
 	"";
 
 static struct argp_option shutdown_options[] = {
 	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
 	{NULL, '\0', NULL, 0, NULL ,0},
 };
 
@@ -709,6 +854,9 @@ parse_shutdown_opt(int key, char * arg,
 	switch (key) {
 	case 'n' :
 		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
 		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -721,7 +869,7 @@ static struct argp shutdown_argp = {shutdown_options, parse_shutdown_opt,
 void shut_down(int argc, char ** argv)
 {
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
@@ -736,10 +884,14 @@ void shut_down(int argc, char ** argv)
 		printf("n is between 1 and 100\n");
 		exit(-1);
 	} 
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
 
 	sprintf(buf, "shutdown %d", number);
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -775,16 +927,58 @@ void shut_down(int argc, char ** argv)
 
 
 /* *******************  destroyall  ******************** */
+static char destroyall_doc[] = 
+	"destroyall: destroy all the virtual machines of a node\n"
+	"--ip must be provided.";
+
+static char destroyall_args_doc[] = 
+	"";
+
+static struct argp_option destroyall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_destroyall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp destroyall_argp = {destroyall_options, parse_destroyall_opt, destroyall_args_doc, destroyall_doc, NULL, NULL, NULL};
+
+
 void destroyall(int argc, char ** argv)
 {
+	int idx;
+	int err = argp_parse(&destroyall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
+
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
 	sprintf(buf, "destroyall");
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -821,14 +1015,15 @@ void destroyall(int argc, char ** argv)
 
 /* *********************  destroy  ********************** */
 static char destroy_doc[] = 
-	"list: list info of virtual machine\n"
-	"--number must be provided.";
+	"destroy: destroy virtual machine\n"
+	"--number, --ip must be provided.";
 
 static char destroy_args_doc[] = 
 	"";
 
 static struct argp_option destroy_options[] = {
 	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
 	{NULL, '\0', NULL, 0, NULL ,0},
 };
 
@@ -839,6 +1034,9 @@ parse_destroy_opt(int key, char * arg,
 	switch (key) {
 	case 'n' :
 		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
 		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -851,7 +1049,7 @@ static struct argp destroy_argp = {destroy_options, parse_destroy_opt,
 void destroy(int argc, char ** argv)
 {
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
@@ -867,9 +1065,14 @@ void destroy(int argc, char ** argv)
 		exit(-1);
 	} 
 
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
 	sprintf(buf, "destroy %d", number);
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -905,8 +1108,49 @@ void destroy(int argc, char ** argv)
 
 /* *******************  netflowall  ******************** */
 
+static char netflowall_doc[] = 
+	"netflowall: display the total netflow of a node\n"
+	"--ip must be provided.";
+
+static char netflowall_args_doc[] = 
+	"";
+
+static struct argp_option netflowall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_netflowall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp netflowall_argp = {netflowall_options, parse_netflowall_opt, netflowall_args_doc, netflowall_doc, NULL, NULL, NULL};
+
+
+
 int netflowall(int argc, char ** argv) 
 {
+	int idx;
+	int err = argp_parse(&netflowall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
 
 	is_netflowall = 1;
 	printf("is_netflowall = %d\n", is_netflowall);
@@ -942,18 +1186,16 @@ int netflowall(int argc, char ** argv)
 /* *******************  netflow  ******************** */
  
 
- 
-
-
 static char netflow_doc[] = 
-	"virt: netflow: netflow info of virtual machine\n"
-	"--number must be provided.";
+	"netflow: display the netflow of virtual machine\n"
+	"--number, --ip must be provided.";
 
 static char netflow_args_doc[] = 
 	"";
 
 static struct argp_option netflow_options[] = {
 	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
 	{NULL, '\0', NULL, 0, NULL ,0},
 };
 
@@ -964,6 +1206,9 @@ parse_netflow_opt(int key, char * arg,
 	switch (key) {
 	case 'n' :
 		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
 		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -987,7 +1232,10 @@ int netflow(int argc, char ** argv)
 		exit(-1);
 	}
 
-	
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
 
 
 	GtkWidget *window; 
@@ -1018,15 +1266,58 @@ int netflow(int argc, char ** argv)
 
 
 /* *******************  listall  ******************** */
+static char listall_doc[] = 
+	"listall: list the info of all virtual machines on a node\n"
+	"--ip must be provided.";
+
+static char listall_args_doc[] = 
+	"";
+
+static struct argp_option listall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_listall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp listall_argp = {listall_options, parse_listall_opt, listall_args_doc, listall_doc, NULL, NULL, NULL};
+
+
+
 void listall(int argc, char ** argv)
 {
+	int idx;
+	int err = argp_parse(&listall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
+
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 	sprintf(buf, "listall");
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -1064,13 +1355,14 @@ void listall(int argc, char ** argv)
 /* *********************  list  ********************** */
 static char list_doc[] = 
 	"list: list info of virtual machine\n"
-	"--number must be provided.";
+	"--number, --ip must be provided.";
 
 static char list_args_doc[] = 
 	"";
 
 static struct argp_option list_options[] = {
 	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
 	{NULL, '\0', NULL, 0, NULL ,0},
 };
 
@@ -1082,6 +1374,9 @@ parse_list_opt(int key, char * arg,
 	case 'n' :
 		number = atoi(arg);
 		return 0;
+	case 'i' :
+		ip = arg;
+		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -1092,9 +1387,10 @@ static struct argp list_argp = {list_options, parse_list_opt,
 
 void list(int argc, char ** argv)
 {
+
 	long long  rx_bytes, tx_bytes;
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
@@ -1110,9 +1406,15 @@ void list(int argc, char ** argv)
 		exit(-1);
 	} 
 
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
+
 	sprintf(buf, "list %d", number);
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -1146,16 +1448,104 @@ void list(int argc, char ** argv)
 	close(sockfd);
 }
 
+/* *******************  createall  ******************** */
+
+static char createall_doc[] = 
+	"createall: create all the virtual machines of a node\n"
+	"--ip must be provided.";
+
+static char createall_args_doc[] = 
+	"";
+
+static struct argp_option createall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_createall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp createall_argp = {createall_options, parse_createall_opt, createall_args_doc, createall_doc, NULL, NULL, NULL};
+
+void createall(int argc, char ** argv)
+{
+	int idx;
+	int err = argp_parse(&createall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
+	int sockfd, nbytes;
+	char buf[10240] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	sprintf(buf, "createall");
+  
+	if((he = gethostbyname(ip)) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("createall socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
+
 /* ************  create  ***************/
 static char create_doc[] = 
 	"create: create new virtual machine\n"
-	"--number must be provided.";
+	"--number, --ip must be provided.";
 
 static char create_args_doc[] = 
 	"";
 
 static struct argp_option create_options[] = {
 	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
 	{NULL, '\0', NULL, 0, NULL ,0},
 };
 
@@ -1166,6 +1556,9 @@ parse_create_opt(int key, char * arg,
 	switch (key) {
 	case 'n' :
 		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
 		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -1178,7 +1571,7 @@ static struct argp create_argp = {create_options, parse_create_opt,
 void create(int argc, char ** argv)
 {
 	int sockfd, nbytes;
-	char buf[1024] = {0};
+	char buf[10240] = {0};
 	struct hostent *he;
 	struct sockaddr_in srvaddr;
 
@@ -1193,9 +1586,15 @@ void create(int argc, char ** argv)
 		printf("n is between 1 and 100\n");
 		exit(-1);
 	} 
+
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+	
 	sprintf(buf, "create %d", number);
   
-	if((he = gethostbyname("localhost")) == NULL) {
+	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
 		exit(-1);
 	}
@@ -1240,6 +1639,7 @@ static void usage(const char * arg)
 	printf("\t%s shutdown -n (1--100)\n", arg);
 	printf("\t%s suspend -n (1--100)\n", arg);
 	printf("\t%s resume -n (1--100)\n", arg);
+	printf("\t%s createall\n", arg);
 	printf("\t%s listall\n", arg);
 	printf("\t%s netflowall\n", arg);
 	printf("\t%s destroyall\n", arg);
@@ -1257,6 +1657,8 @@ int main(int argc, char **argv)
 		usage(argv[0]);
 	if(strcmp(argv[1], "create") == 0) {
 		create(argc - 1, &argv[1]);
+	} else if (strcmp(argv[1], "createall") == 0) {
+		createall(argc - 1, &argv[1]);
 	} else if (strcmp(argv[1], "list") == 0) {
 		list(argc - 1, &argv[1]);
 	} else if (strcmp(argv[1], "listall") == 0) {
