@@ -727,6 +727,7 @@ void create_all()
 	int i;
 	char number_buf[10] = {0};
 	virConnectPtr conn;
+	memset(buf, '\0', 10240);
 	//printf("in create_virt\n");
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
