@@ -383,6 +383,94 @@ gint Repaint (gpointer da)
 	return TRUE; 
 }
 
+
+/* *********************  reboot  ********************** */
+static char reboot_doc[] = 
+	"reboot: reboot virtual machine\n"
+	"--number, --ip must be provided.";
+
+static char reboot_args_doc[] = 
+	"";
+
+static struct argp_option reboot_options[] = {
+	{"ip", 'i', "ip address", 0, "ip address of virtual machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_reboot_opt(int key, char * arg, 
+		struct argp_state * state /*__attribute__((unused))*/ )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp reboot_argp = {reboot_options, parse_reboot_opt,
+	reboot_args_doc, reboot_doc, NULL, NULL, NULL};
+
+void re_boot(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[10240] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	int idx;
+	int err = argp_parse(&reboot_argp, argc, argv, 
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+
+	sprintf(buf, "reboot");
+  
+	if((he = gethostbyname(ip)) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("reboot socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(4000);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s", buf);
+	close(sockfd);
+}
+
+
+
 /* *******************  resumeall  ******************** */
 
 static char resumeall_doc[] = 
@@ -1632,20 +1720,21 @@ void create(int argc, char ** argv)
 static void usage(const char * arg)
 {
 	printf("usage:\n");
-	printf("\t%s create -n (1--100)\n", arg);
-	printf("\t%s list -n (1--100)\n", arg);
-	printf("\t%s netflow -n (1--100)\n", arg);
-	printf("\t%s destroy -n (1--100)\n", arg);
-	printf("\t%s shutdown -n (1--100)\n", arg);
-	printf("\t%s suspend -n (1--100)\n", arg);
-	printf("\t%s resume -n (1--100)\n", arg);
-	printf("\t%s createall\n", arg);
-	printf("\t%s listall\n", arg);
-	printf("\t%s netflowall\n", arg);
-	printf("\t%s destroyall\n", arg);
-	printf("\t%s shutdownall\n", arg);
-	printf("\t%s suspendall\n", arg);
-	printf("\t%s resumeall\n", arg);
+	printf("\t%s create -n (1--100) -i node_ip\n", arg);
+	printf("\t%s list -n (1--100) -i node_ip\n", arg);
+	printf("\t%s netflow -n (1--100) -i node_ip\n", arg);
+	printf("\t%s destroy -n (1--100) -i node_ip\n", arg);
+	printf("\t%s shutdown -n (1--100) -i node_ip\n", arg);
+	printf("\t%s suspend -n (1--100) -i node_ip\n", arg);
+	printf("\t%s resume -n (1--100) -i node_ip\n", arg);
+	printf("\t%s createall -i node_ip\n", arg);
+	printf("\t%s listall -i node_ip\n", arg);
+	printf("\t%s netflowall -i node_ip\n", arg);
+	printf("\t%s destroyall -i node_ip\n", arg);
+	printf("\t%s shutdownall -i node_ip\n", arg);
+	printf("\t%s suspendall -i node_ip\n", arg);
+	printf("\t%s resumeall -i node_ip\n", arg);
+	printf("\t%s reboot -i vm_ip\n", arg);
 	exit(-1);
 }
 
@@ -1683,6 +1772,8 @@ int main(int argc, char **argv)
 		resumeall(argc - 1, &argv[1]);
 	} else if(strcmp(argv[1], "resume") == 0) {
 		resume(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "reboot") == 0) {
+		re_boot(argc - 1, &argv[1]);
 	}
 	else
 		usage(argv[0]);
