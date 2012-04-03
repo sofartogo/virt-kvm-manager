@@ -385,6 +385,99 @@ gint Repaint (gpointer da)
 	return TRUE; 
 }
 
+/* ************  definevm  ***************/
+static char definevm_doc[] = 
+	"definevm: define new virtual machine\n"
+	"--number, --ip must be provided.";
+
+static char definevm_args_doc[] = 
+	"";
+
+static struct argp_option definevm_options[] = {
+	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_definevm_opt(int key, char * arg, 
+		struct argp_state * state /*__attribute__((unused))*/ )
+{
+	switch (key) {
+	case 'n' :
+		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp definevm_argp = {definevm_options, parse_definevm_opt,
+	definevm_args_doc, definevm_doc, NULL, NULL, NULL};
+
+void definevm(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[10240] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	int idx;
+	int err = argp_parse(&definevm_argp, argc, argv, 
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	if(number < 1 || number > 100) {
+		printf("n is between 1 and 100\n");
+		exit(-1);
+	} 
+
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+	
+	sprintf(buf, "define %d", number);
+  
+	if((he = gethostbyname(ip)) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("create socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
 /* *********************  listnode  ********************** */
 static char listnode_doc[] = 
 	"listnode: list info of node\n"
@@ -1921,6 +2014,8 @@ int main(int argc, char **argv)
 		getstate(argc - 1, &argv[1]);
 	} else if(strcmp(argv[1], "listnode") == 0) {
 		listnode(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "definevm") == 0) {
+		definevm(argc - 1, &argv[1]);
 	}
 	else
 		usage(argv[0]);

@@ -31,11 +31,12 @@
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
+const char xml_path ="/home/ww/Work/libvirt/github/"
 #define MYPORT 3001 /*开放的端口号*/
 #define BACKLOG 5  /*指定套接字可以接受的最大未接受客户机请求的数目*/
 char buf[10240] = {0};
 
-typedef struct         //定义一个cpu occupy的结构体
+
 {
 	char name[20];      //定义一个char类型的数组名name有20个元素
 	unsigned int user; //定义一个无符号的int类型的user
@@ -120,6 +121,36 @@ char * getDomainInterfacePath(virDomainPtr dom)
 		;
 	*p = '\0';
 	return ret;
+}
+
+void definevm(int number)
+{
+	char file_buf[10] = {0};
+	char * xml = malloc
+	sprintf(file_buf, "%sdemo%d.xml", xml_path, number);
+	
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	}
+	printf("success to open connection to qemu:///system\n");
+	
+
+	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
+	if(virDomainCreate(dom) < 0) {
+		virDomainFree(dom);
+		printf("fail to boot guest.\n");
+		sprintf(buf, "fail to boot guest");
+		return;
+	}
+	printf("guest %s has boot.\n", virDomainGetName(dom));
+	sprintf(buf, "guest %s has boot.", virDomainGetName(dom));
+	virDomainFree(dom);
+	virConnectClose(conn);
+	return;
 }
 
 void listnode()
@@ -1022,7 +1053,11 @@ void main()
 			resume(vir_num);
 		} else if((s = strstr(buf, "getstate"))) {
 			getstate();
-		} 
+		} else if((s = strstr(buf, "define"))) {
+			s += 7;
+			vir_num = atoi(s);
+			definevm(vir_num);
+		}
 
 
 		write(new_fd, buf, 10240);
