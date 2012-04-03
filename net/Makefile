@@ -1,6 +1,6 @@
 all:virt mainC
 
-CFLAGS=`pkg-config --cflags --libs gtk+-2.0` -lvirt
+CFLAGS=`pkg-config --cflags --libs gtk+-2.0` -lvirt -g
 
 #virt: virt.o
 #	gcc -o $@ $^ -lvirt

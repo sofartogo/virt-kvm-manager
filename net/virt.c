@@ -35,6 +35,79 @@
 #define BACKLOG 5  /*指定套接字可以接受的最大未接受客户机请求的数目*/
 char buf[10240] = {0};
 
+typedef struct         //定义一个cpu occupy的结构体
+{
+	char name[20];      //定义一个char类型的数组名name有20个元素
+	unsigned int user; //定义一个无符号的int类型的user
+	unsigned int nice; //定义一个无符号的int类型的nice
+	unsigned int system;//定义一个无符号的int类型的system
+	unsigned int idle; //定义一个无符号的int类型的idle
+}CPU_OCCUPY;
+
+typedef struct        //定义一个mem occupy的结构体
+{
+	char name[20];      //定义一个char类型的数组名name有20个元素
+	unsigned long total; 
+	char name2[20];
+	unsigned long cached;
+	unsigned long buffers;
+	unsigned long free;                       
+}MEM_OCCUPY;
+
+float get_memoccupy (MEM_OCCUPY *mem) 
+{
+	FILE *fd;          
+	int n;             
+	char buff[256];   
+	MEM_OCCUPY *m;
+	m=mem;
+						                                                        fd = fopen ("/proc/meminfo", "r"); 
+	fgets (buff, sizeof(buff), fd); 
+	sscanf (buff, "%s %lu %s", m->name, &m->total, m->name2); 
+	fgets (buff, sizeof(buff), fd); 
+	sscanf (buff, "%s %lu %s", m->name, &m->free, m->name2); 
+	fgets (buff, sizeof(buff), fd); 
+	sscanf (buff, "%s %lu %s", m->name, &m->buffers, m->name2); 
+	fgets (buff, sizeof(buff), fd); 
+	sscanf (buff, "%s %lu %s", m->name, &m->cached, m->name2); 
+	
+	//printf("total = %lu\tfree = %lu\tcached = %lu\tbuffers = %lu\n", m->total, m->free, m->cached, m->buffers);
+	fclose(fd);     //关闭文件fd
+	return 100*(float)(m->total - m->free - m->cached - m->buffers)/(m->total);
+
+}
+
+float cal_cpuoccupy (CPU_OCCUPY *stat1, CPU_OCCUPY *stat2) 
+{   
+	unsigned long total1, total2, total;    
+	unsigned long idle1, idle2, idle;
+	total1 = (unsigned long) (stat1->user + stat1->nice + stat1->system + stat1->idle);//第一次(用户+优先级+系统+空闲)的时间再赋给stat1
+	total2 = (unsigned long) (stat2->user + stat2->nice + stat2->system + stat2->idle);//第二次(用户+优先级+系统+空闲)的时间再赋给stat2
+	idle1 = (unsigned long) (stat1->idle);  
+	idle2 = (unsigned long) (stat2->idle);
+	total = total2 - total1;
+	idle = idle2 - idle1;
+	if(total != 0)
+		return 100*(float)(total - idle)/total;
+	else 
+		return (float)0;
+}
+
+get_cpuoccupy (CPU_OCCUPY *cpust) //对无类型get函数含有一个形参结构体类弄
+{   
+	FILE *fd;         
+	int n;            
+	char buff[256]; 
+	CPU_OCCUPY *cpu_occupy;
+	cpu_occupy=cpust;
+	fd = fopen("/proc/stat","r");
+	fgets(buff, sizeof(buff), fd);	
+	sscanf(buff, "%s %u %u %u %u", cpu_occupy->name, &cpu_occupy->user, &cpu_occupy->nice, &cpu_occupy->system, &cpu_occupy->idle);
+	//printf("%s %u %u %u %u", cpu_occupy->name, cpu_occupy->user, cpu_occupy->nice, cpu_occupy->system, cpu_occupy->idle);
+
+	fclose(fd);
+}
+
 
 char * getDomainInterfacePath(virDomainPtr dom)
 {
@@ -47,6 +120,79 @@ char * getDomainInterfacePath(virDomainPtr dom)
 		;
 	*p = '\0';
 	return ret;
+}
+
+void listnode()
+{
+	float mem_usage, cpu_usage;
+	CPU_OCCUPY cpu_stat1;
+	CPU_OCCUPY cpu_stat2;                                                      
+	MEM_OCCUPY mem_stat;                 
+	//获取内存	
+	mem_usage = get_memoccupy((MEM_OCCUPY *)&mem_stat);			
+	printf("mem_usage = %f100%%\n", mem_usage);
+	//第一次获取cpu使用情况				
+	get_cpuoccupy((CPU_OCCUPY *)&cpu_stat1);
+	sleep(10);
+	//第二次获取cpu使用情况					
+	get_cpuoccupy((CPU_OCCUPY *)&cpu_stat2);	
+	//计算cpu使用率
+	cpu_usage = cal_cpuoccupy((CPU_OCCUPY *)&cpu_stat1, (CPU_OCCUPY *)&cpu_stat2);
+	printf("cpu_usage = %f100%%\n", cpu_usage);
+	sprintf(buf, "mem_usage = %f100%% cpu_usage = %f100%%\n", mem_usage, cpu_usage);
+	return;
+	
+}
+
+void getstate()
+{
+	int * state = malloc(sizeof(int));
+	int i;
+	int doms[100]={0};
+	virConnectPtr conn;
+	memset(buf, '\0', 10240);
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///session\n");
+		sprintf(buf, "failed to open connection to qemu:///session");
+		return;
+	}
+	printf("success to open connection to qemu:///session\n");
+
+	if(virConnectListDomains(conn, doms, 100) == -1) {
+		printf("failed to list connect domains\n");
+		sprintf(buf, "failed to list connect domains");
+		return;
+	}
+	if(doms[0] == 0) {
+		printf("no domain is running\n");
+		virConnectClose(conn);
+		return;
+	}
+	virDomainPtr dom;
+	//virDomainInfoPtr dominfo = malloc(sizeof(virDomainInfo));
+	//virDomainInterfaceStatsPtr stats = malloc(sizeof(virDomainInterfaceStatsStruct)) ;
+	for(i = 0; i < 100; i++) {
+		//printf("doms[%d] = %d\t", i, doms[i]);
+		//fflush(stdout);
+		if(doms[i] == 0)
+			break;
+		dom = virDomainLookupByID(conn, doms[i]);
+		if(dom == NULL)
+			printf("dom error\n");
+		if((virDomainGetState(dom, state, NULL, 0)) != 0) {
+			sprintf(buf, "get domain state failed\n");
+			virDomainFree(dom);
+			virConnectClose(conn);
+			return;
+		}
+		sprintf(&buf[strlen(buf)], " %s %d", virDomainGetName(dom), *state);		
+	}
+	free(dom);
+	virConnectClose(conn);
+
+	return ;
+
 }
 
 void resume_all()
@@ -838,6 +984,8 @@ void main()
 			create(vir_num);
 		} else if((s = strstr(buf, "listall")))
 			list_all();
+		else if((s = strstr(buf, "listnode")))
+			listnode();
 		else if((s = strstr(buf, "list"))) {
 			s += 5;
 			vir_num = atoi(s);
@@ -872,7 +1020,10 @@ void main()
 			s += 7;
 			vir_num = atoi(s);
 			resume(vir_num);
-		}
+		} else if((s = strstr(buf, "getstate"))) {
+			getstate();
+		} 
+
 
 		write(new_fd, buf, 10240);
 		close(new_fd);
