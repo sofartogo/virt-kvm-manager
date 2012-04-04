@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -31,12 +32,12 @@
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
-const char xml_path ="/home/ww/Work/libvirt/github/"
 #define MYPORT 3001 /*开放的端口号*/
 #define BACKLOG 5  /*指定套接字可以接受的最大未接受客户机请求的数目*/
 char buf[10240] = {0};
+const char *xml_path ="/home/ww/Work/libvirt/github/";
 
-
+typedef struct
 {
 	char name[20];      //定义一个char类型的数组名name有20个元素
 	unsigned int user; //定义一个无符号的int类型的user
@@ -123,12 +124,93 @@ char * getDomainInterfacePath(virDomainPtr dom)
 	return ret;
 }
 
+void definevmall()
+{
+	int i;
+	FILE *fd;
+	struct stat *stat_buf;
+	char file_buf[100] = {0};
+	char *xml;
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	}
+	printf("success to open connection to qemu:///system\n");
+	memset(buf, '\0', 10240);
+	for(i = 1; i <= 100; i++) 
+	{
+		sprintf(file_buf, "%sdemo%d.xml", xml_path, i);
+		if(access(file_buf, F_OK) != 0) {
+			sprintf(&buf[strlen(buf)], "demo%d.xml is not exist\n", i);
+			continue;
+		}
+		stat_buf = (struct stat *)malloc(sizeof(struct stat));
+		if((stat(file_buf, stat_buf)) != 0){
+			perror("stat");
+			sprintf(buf, "stat demo%d.xml failed\n", i);
+			continue;
+		};
+		xml = (char *)malloc(stat_buf->st_size + 1);
+		memset(xml, '\0', stat_buf->st_size + 1);
+		if((fd = fopen(file_buf, "r")) == NULL) {
+			perror("fopen");
+			sprintf(buf, "open demo%d.xml failed\n", i);
+			continue;
+		}
+		if((fread(xml, stat_buf->st_size, 1, fd)) <= 0) {
+			perror("fread");
+			sprintf(buf, "fread demo%d.xml failed\n", i);
+			return;
+		}
+
+		virDomainPtr dom = virDomainDefineXML(conn, xml);
+		if(dom == NULL) {
+			printf("fail to define xml.\n");
+			sprintf(buf, "fail to define demo%d.xml\n", i);
+			continue;
+		}
+		printf("guest %s has been defined.\n", virDomainGetName(dom));
+		sprintf(&buf[strlen(buf)], "guest %s has been defined\n", virDomainGetName(dom));
+		virDomainFree(dom);				
+	}
+	virConnectClose(conn);
+	return;
+
+}
+
 void definevm(int number)
 {
-	char file_buf[10] = {0};
-	char * xml = malloc
+	FILE *fd;
+	struct stat * stat_buf;
+	char file_buf[100] = {0};
+	char * xml;
 	sprintf(file_buf, "%sdemo%d.xml", xml_path, number);
-	
+	if(access(file_buf, F_OK) != 0) {
+		sprintf(buf, "xml file is not exist");
+		return;
+	}
+	stat_buf = (struct stat *)malloc(sizeof(struct stat));
+	if((stat(file_buf, stat_buf)) != 0){
+		perror("stat");
+		sprintf(buf, "stat failed");
+		return;
+	};
+	xml = (char *)malloc(stat_buf->st_size + 1);
+	memset(xml, '\0', stat_buf->st_size + 1);
+	if((fd = fopen(file_buf, "r")) == NULL) {
+		perror("fopen");
+		sprintf(buf, "open xml file failed");
+		return;
+	}
+	if((fread(xml, stat_buf->st_size, 1, fd)) <= 0) {
+		perror("fread");
+		sprintf(buf, "fread error");
+		return;
+	}
+	//printf("demo%d.xml = %s\n", number, xml);
 	virConnectPtr conn;
 	conn = virConnectOpen("qemu:///system");
 	if(conn == NULL) {
@@ -138,16 +220,14 @@ void definevm(int number)
 	}
 	printf("success to open connection to qemu:///system\n");
 	
-
-	virDomainPtr dom = virDomainLookupByName(conn, number_buf);
-	if(virDomainCreate(dom) < 0) {
-		virDomainFree(dom);
-		printf("fail to boot guest.\n");
-		sprintf(buf, "fail to boot guest");
+	virDomainPtr dom = virDomainDefineXML(conn, xml);
+	if(dom == NULL) {
+		printf("fail to define xml.\n");
+		sprintf(buf, "fail to define xml");
 		return;
 	}
-	printf("guest %s has boot.\n", virDomainGetName(dom));
-	sprintf(buf, "guest %s has boot.", virDomainGetName(dom));
+	printf("guest %s has been defined.\n", virDomainGetName(dom));
+	sprintf(buf, "guest %s has been defined.", virDomainGetName(dom));
 	virDomainFree(dom);
 	virConnectClose(conn);
 	return;
@@ -1053,7 +1133,9 @@ void main()
 			resume(vir_num);
 		} else if((s = strstr(buf, "getstate"))) {
 			getstate();
-		} else if((s = strstr(buf, "define"))) {
+		} else if((s = strstr(buf, "definevmall")))
+			definevmall();
+		else if((s = strstr(buf, "define"))) {
 			s += 7;
 			vir_num = atoi(s);
 			definevm(vir_num);

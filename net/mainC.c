@@ -385,6 +385,92 @@ gint Repaint (gpointer da)
 	return TRUE; 
 }
 
+/* *******************  definevmall  ******************** */
+
+static char definevmall_doc[] = 
+	"definevmall: define all the vm xml of a node\n"
+	"--ip must be provided.";
+
+static char definevmall_args_doc[] = 
+	"";
+
+static struct argp_option definevmall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_definevmall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp definevmall_argp = {definevmall_options, parse_definevmall_opt, definevmall_args_doc, definevmall_doc, NULL, NULL, NULL};
+
+void definevmall(int argc, char ** argv)
+{
+	int idx;
+	int err = argp_parse(&definevmall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+	int sockfd, nbytes;
+	char buf[10240] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	sprintf(buf, "definevmall");
+  
+	if((he = gethostbyname(ip)) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("definevmall socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
+
 /* ************  definevm  ***************/
 static char definevm_doc[] = 
 	"definevm: define new virtual machine\n"
@@ -1961,6 +2047,7 @@ static void usage(const char * arg)
 	printf("\t%s shutdown -n (1--100) -i node_ip\n", arg);
 	printf("\t%s suspend -n (1--100) -i node_ip\n", arg);
 	printf("\t%s resume -n (1--100) -i node_ip\n", arg);
+	printf("\t%s definevm -n (1--100) -i node_ip\n", arg);
 	printf("\t%s createall -i node_ip\n", arg);
 	printf("\t%s listall -i node_ip\n", arg);
 	printf("\t%s netflowall -i node_ip\n", arg);
@@ -1971,6 +2058,7 @@ static void usage(const char * arg)
 	printf("\t%s reboot -i vm_ip\n", arg);
 	printf("\t%s getstate\n", arg);
 	printf("\t%s listnode -i node_ip\n", arg);
+
 	exit(-1);
 }
 
@@ -2014,6 +2102,8 @@ int main(int argc, char **argv)
 		getstate(argc - 1, &argv[1]);
 	} else if(strcmp(argv[1], "listnode") == 0) {
 		listnode(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "definevmall") == 0) {
+		definevmall(argc - 1, &argv[1]);
 	} else if(strcmp(argv[1], "definevm") == 0) {
 		definevm(argc - 1, &argv[1]);
 	}
