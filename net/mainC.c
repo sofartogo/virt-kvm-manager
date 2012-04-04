@@ -385,6 +385,185 @@ gint Repaint (gpointer da)
 	return TRUE; 
 }
 
+/* *******************  undefinevmall  ******************** */
+
+static char undefinevmall_doc[] = 
+	"undefinevmall: undefine all the vm xml of a node\n"
+	"--ip must be provided.";
+
+static char undefinevmall_args_doc[] = 
+	"";
+
+static struct argp_option undefinevmall_options[] = {
+	{"ip", 'i', "ip address", 0 ,"ip address of node machine", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_undefinevmall_opt(int key, char * arg, 
+		struct argp_state * state )
+{
+	switch (key) {
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp undefinevmall_argp = {undefinevmall_options, parse_undefinevmall_opt, undefinevmall_args_doc, undefinevmall_doc, NULL, NULL, NULL};
+
+void undefinevmall(int argc, char ** argv)
+{
+	int idx;
+	int err = argp_parse(&undefinevmall_argp, argc, argv,
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	
+	if (ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+	int sockfd, nbytes;
+	char buf[10240] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	sprintf(buf, "undefinevmall");
+  
+	if((he = gethostbyname(ip)) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("definevmall socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
+
+/* ************  undefinevm  ***************/
+static char undefinevm_doc[] = 
+	"undefinevm: undefine new virtual machine\n"
+	"--number, --ip must be provided.";
+
+static char undefinevm_args_doc[] = 
+	"";
+
+static struct argp_option undefinevm_options[] = {
+	{"number", 'n', "target number", 0 ,"number of virtual machine", 0},
+	{"ip", 'i', "ip address", 0, "ip address of node", 0},
+	{NULL, '\0', NULL, 0, NULL ,0},
+};
+
+static error_t 
+parse_undefinevm_opt(int key, char * arg, 
+		struct argp_state * state /*__attribute__((unused))*/ )
+{
+	switch (key) {
+	case 'n' :
+		number = atoi(arg);
+		return 0;
+	case 'i' :
+		ip = arg;
+		return 0;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+}
+
+static struct argp undefinevm_argp = {undefinevm_options, parse_undefinevm_opt, undefinevm_args_doc, undefinevm_doc, NULL, NULL, NULL};
+
+void undefinevm(int argc, char ** argv)
+{
+	int sockfd, nbytes;
+	char buf[10240] = {0};
+	struct hostent *he;
+	struct sockaddr_in srvaddr;
+
+	int idx;
+	int err = argp_parse(&undefinevm_argp, argc, argv, 
+			ARGP_IN_ORDER, &idx, NULL);
+	if (err != 0) {
+		printf("argp_parse error: %d\n", err);
+		exit(-1);
+	}
+	if(number < 1 || number > 100) {
+		printf("n is between 1 and 100\n");
+		exit(-1);
+	} 
+
+	if(ip == NULL) {
+		printf("use -i or --ip to set ip address\n");
+		exit(-1);
+	}
+	
+	sprintf(buf, "undefinevm %d", number);
+  
+	if((he = gethostbyname(ip)) == NULL) {
+		perror("gethostbyname");
+		exit(-1);
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		perror("create socket error");
+		exit(-1);
+	}
+	bzero(&srvaddr, sizeof(srvaddr));
+
+	srvaddr.sin_family = AF_INET;
+	srvaddr.sin_port = htons(PORT);
+	srvaddr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	if(connect(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
+		perror("connect error");
+		exit(-1);
+	}
+	if(write(sockfd, buf, strlen(buf)) == -1) {
+		perror("send error");
+		exit(-1);
+	}
+
+	if((nbytes = read(sockfd, buf, MAXDATASIZE)) == -1) {
+		perror("read error");
+		exit(-1);
+	}
+
+	buf[nbytes] = '\0';
+	printf("%s\n", buf);
+	close(sockfd);
+}
+
+
 /* *******************  definevmall  ******************** */
 
 static char definevmall_doc[] = 
@@ -528,7 +707,7 @@ void definevm(int argc, char ** argv)
 		exit(-1);
 	}
 	
-	sprintf(buf, "define %d", number);
+	sprintf(buf, "definevm %d", number);
   
 	if((he = gethostbyname(ip)) == NULL) {
 		perror("gethostbyname");
@@ -2048,6 +2227,7 @@ static void usage(const char * arg)
 	printf("\t%s suspend -n (1--100) -i node_ip\n", arg);
 	printf("\t%s resume -n (1--100) -i node_ip\n", arg);
 	printf("\t%s definevm -n (1--100) -i node_ip\n", arg);
+	printf("\t%s undefinevm -n (1--100) -i node_ip\n", arg);
 	printf("\t%s createall -i node_ip\n", arg);
 	printf("\t%s listall -i node_ip\n", arg);
 	printf("\t%s netflowall -i node_ip\n", arg);
@@ -2055,6 +2235,8 @@ static void usage(const char * arg)
 	printf("\t%s shutdownall -i node_ip\n", arg);
 	printf("\t%s suspendall -i node_ip\n", arg);
 	printf("\t%s resumeall -i node_ip\n", arg);
+	printf("\t%s definevmall -i node_ip\n", arg);
+	printf("\t%s undefinevmall -i node_ip\n", arg);
 	printf("\t%s reboot -i vm_ip\n", arg);
 	printf("\t%s getstate\n", arg);
 	printf("\t%s listnode -i node_ip\n", arg);
@@ -2106,6 +2288,10 @@ int main(int argc, char **argv)
 		definevmall(argc - 1, &argv[1]);
 	} else if(strcmp(argv[1], "definevm") == 0) {
 		definevm(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "undefinevmall") == 0) {
+		undefinevmall(argc - 1, &argv[1]);
+	} else if(strcmp(argv[1], "undefinevm") == 0) {
+		undefinevm(argc - 1, &argv[1]);
 	}
 	else
 		usage(argv[0]);

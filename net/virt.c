@@ -124,6 +124,76 @@ char * getDomainInterfacePath(virDomainPtr dom)
 	return ret;
 }
 
+void undefinevmall()
+{
+	int i;
+	char dom_name[10] = {0};
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	}
+	printf("success to open connection to qemu:///system\n");
+	memset(buf, '\0', 10240);
+	for(i = 1; i <= 100; i++) 
+	{
+		sprintf(dom_name, "demo%d", i);
+		virDomainPtr dom = virDomainLookupByName(conn, dom_name);
+		if(dom == NULL) {
+			printf("no domain named %s defined\n", dom_name);
+			sprintf(&buf[strlen(buf)], "no domain named %s defined\n", dom_name);
+			continue;
+		}
+		if((virDomainUndefine(dom)) != 0) {
+			printf("failed to undefine %s\n", dom_name);
+			sprintf(&buf[strlen(buf)], "failed to undefine %s", dom_name);
+			continue;
+		}
+		printf("guest %s has been undefined.\n", virDomainGetName(dom));
+		sprintf(&buf[strlen(buf)], "guest %s has been undefined.\n", virDomainGetName(dom));
+
+		virDomainFree(dom);				
+	}
+	virConnectClose(conn);
+	return;
+
+}
+
+
+
+void undefinevm(int number)
+{
+	char dom_name[10] = {0};
+	virConnectPtr conn;
+	conn = virConnectOpen("qemu:///system");
+	if(conn == NULL) {
+		printf("failed to open connection to qemu:///system\n");
+		sprintf(buf, "failed to open connection to qemu:///system");
+		return;
+	}
+	printf("success to open connection to qemu:///system\n");
+	sprintf(dom_name, "demo%d", number);
+	virDomainPtr dom = virDomainLookupByName(conn, dom_name);
+	if(dom == NULL) {
+		printf("no domain named %s defined\n", dom_name);
+		sprintf(buf, "no domain named %s defined",dom_name);
+		return;
+	}
+	if((virDomainUndefine(dom)) != 0) {
+		printf("failed to undefine %s\n", dom_name);
+		sprintf(buf, "failed to undefine %s", dom_name);
+		return;
+	}
+	printf("guest %s has been undefined.\n", virDomainGetName(dom));
+	sprintf(buf, "guest %s has been undefined.\n", virDomainGetName(dom));
+	virDomainFree(dom);
+	virConnectClose(conn);
+	return;
+}
+
+
 void definevmall()
 {
 	int i;
@@ -150,26 +220,26 @@ void definevmall()
 		stat_buf = (struct stat *)malloc(sizeof(struct stat));
 		if((stat(file_buf, stat_buf)) != 0){
 			perror("stat");
-			sprintf(buf, "stat demo%d.xml failed\n", i);
+			sprintf(&buf[strlen(buf)], "stat demo%d.xml failed\n", i);
 			continue;
 		};
 		xml = (char *)malloc(stat_buf->st_size + 1);
 		memset(xml, '\0', stat_buf->st_size + 1);
 		if((fd = fopen(file_buf, "r")) == NULL) {
 			perror("fopen");
-			sprintf(buf, "open demo%d.xml failed\n", i);
+			sprintf(&buf[strlen(buf)], "open demo%d.xml failed\n", i);
 			continue;
 		}
 		if((fread(xml, stat_buf->st_size, 1, fd)) <= 0) {
 			perror("fread");
-			sprintf(buf, "fread demo%d.xml failed\n", i);
+			sprintf(&buf[strlen(buf)], "fread demo%d.xml failed\n", i);
 			return;
 		}
 
 		virDomainPtr dom = virDomainDefineXML(conn, xml);
 		if(dom == NULL) {
 			printf("fail to define xml.\n");
-			sprintf(buf, "fail to define demo%d.xml\n", i);
+			sprintf(&buf[strlen(buf)], "fail to define demo%d.xml\n", i);
 			continue;
 		}
 		printf("guest %s has been defined.\n", virDomainGetName(dom));
@@ -1133,14 +1203,19 @@ void main()
 			resume(vir_num);
 		} else if((s = strstr(buf, "getstate"))) {
 			getstate();
+		} else if((s = strstr(buf, "undefinevmall")))
+			undefinevmall();
+		else if((s = strstr(buf, "undefinevm"))) {
+			s += 11;
+			vir_num = atoi(s);
+			undefinevm(vir_num);
 		} else if((s = strstr(buf, "definevmall")))
 			definevmall();
-		else if((s = strstr(buf, "define"))) {
-			s += 7;
+		else if((s = strstr(buf, "definevm"))) {
+			s += 9;
 			vir_num = atoi(s);
 			definevm(vir_num);
-		}
-
+		} 
 
 		write(new_fd, buf, 10240);
 		close(new_fd);
