@@ -25,9 +25,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
 #include <gtk/gtk.h>
 #include <sys/stat.h>
+
 #define PORT 3001
 #define MAXDATASIZE 5000
 
@@ -40,7 +40,7 @@ static struct timeval startTime;
 static struct timeval endTime;
 static int flag = 1;
 
-char *node_ip[2] = {"10.5.0.121"};
+char *node_ip[1] = {"10.5.0.121"};
 
 void get_network_flow(char buf[10240], long long * rx_bytes, long long * tx_bytes)
 {
@@ -59,7 +59,6 @@ void get_network_flow(char buf[10240], long long * rx_bytes, long long * tx_byte
 		;
 	*s2 = '\0';
 	*tx_bytes = atoll(s1);
-
 }
 
 
@@ -386,7 +385,6 @@ gint Repaint (gpointer da)
 }
 
 /* *******************  undefinevmall  ******************** */
-
 static char undefinevmall_doc[] = 
 	"undefinevmall: undefine all the vm xml of a node\n"
 	"--ip must be provided.";
@@ -441,7 +439,7 @@ void undefinevmall(int argc, char ** argv)
 	}
 
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		perror("definevmall socket error");
+		perror("undefinevmall socket error");
 		exit(-1);
 	}
 	bzero(&srvaddr, sizeof(srvaddr));
@@ -535,7 +533,7 @@ void undefinevm(int argc, char ** argv)
 	}
 
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		perror("create socket error");
+		perror("undefinevm socket error");
 		exit(-1);
 	}
 	bzero(&srvaddr, sizeof(srvaddr));
@@ -715,7 +713,7 @@ void definevm(int argc, char ** argv)
 	}
 
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		perror("create socket error");
+		perror("definevm socket error");
 		exit(-1);
 	}
 	bzero(&srvaddr, sizeof(srvaddr));
@@ -849,7 +847,7 @@ void getstate(int argc, char ** argv)
 		}
 
 		if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-			perror("reboot socket error");
+			perror("getstate socket error");
 			exit(-1);
 		}
 		bzero(&srvaddr, sizeof(srvaddr));

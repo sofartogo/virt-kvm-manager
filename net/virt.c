@@ -15,7 +15,7 @@
  *
  * =============================================================================
  */
-/*service.c*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -34,21 +34,22 @@
 
 #define MYPORT 3001 /*开放的端口号*/
 #define BACKLOG 5  /*指定套接字可以接受的最大未接受客户机请求的数目*/
+
 char buf[10240] = {0};
 const char *xml_path ="/home/ww/Work/libvirt/github/";
 
 typedef struct
 {
-	char name[20];      //定义一个char类型的数组名name有20个元素
-	unsigned int user; //定义一个无符号的int类型的user
-	unsigned int nice; //定义一个无符号的int类型的nice
-	unsigned int system;//定义一个无符号的int类型的system
-	unsigned int idle; //定义一个无符号的int类型的idle
+	char name[20];      
+	unsigned int user; 
+	unsigned int nice; 
+	unsigned int system;
+	unsigned int idle; 
 }CPU_OCCUPY;
 
-typedef struct        //定义一个mem occupy的结构体
+typedef struct        
 {
-	char name[20];      //定义一个char类型的数组名name有20个元素
+	char name[20];      
 	unsigned long total; 
 	char name2[20];
 	unsigned long cached;
@@ -74,7 +75,7 @@ float get_memoccupy (MEM_OCCUPY *mem)
 	sscanf (buff, "%s %lu %s", m->name, &m->cached, m->name2); 
 	
 	//printf("total = %lu\tfree = %lu\tcached = %lu\tbuffers = %lu\n", m->total, m->free, m->cached, m->buffers);
-	fclose(fd);     //关闭文件fd
+	fclose(fd);     
 	return 100*(float)(m->total - m->free - m->cached - m->buffers)/(m->total);
 
 }
@@ -83,8 +84,8 @@ float cal_cpuoccupy (CPU_OCCUPY *stat1, CPU_OCCUPY *stat2)
 {   
 	unsigned long total1, total2, total;    
 	unsigned long idle1, idle2, idle;
-	total1 = (unsigned long) (stat1->user + stat1->nice + stat1->system + stat1->idle);//第一次(用户+优先级+系统+空闲)的时间再赋给stat1
-	total2 = (unsigned long) (stat2->user + stat2->nice + stat2->system + stat2->idle);//第二次(用户+优先级+系统+空闲)的时间再赋给stat2
+	total1 = (unsigned long) (stat1->user + stat1->nice + stat1->system + stat1->idle);
+	total2 = (unsigned long) (stat2->user + stat2->nice + stat2->system + stat2->idle);
 	idle1 = (unsigned long) (stat1->idle);  
 	idle2 = (unsigned long) (stat2->idle);
 	total = total2 - total1;
@@ -95,7 +96,7 @@ float cal_cpuoccupy (CPU_OCCUPY *stat1, CPU_OCCUPY *stat2)
 		return (float)0;
 }
 
-get_cpuoccupy (CPU_OCCUPY *cpust) //对无类型get函数含有一个形参结构体类弄
+get_cpuoccupy (CPU_OCCUPY *cpust) 
 {   
 	FILE *fd;         
 	int n;            
@@ -309,7 +310,7 @@ void listnode()
 	CPU_OCCUPY cpu_stat1;
 	CPU_OCCUPY cpu_stat2;                                                      
 	MEM_OCCUPY mem_stat;                 
-	//获取内存	
+
 	mem_usage = get_memoccupy((MEM_OCCUPY *)&mem_stat);			
 	printf("mem_usage = %f100%%\n", mem_usage);
 	//第一次获取cpu使用情况				
@@ -914,10 +915,6 @@ void netflow(int number)
 	} 
 	printf("rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
 	sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
-
-
-
-
 	
 	virDomainFree(dom);
 	virConnectClose(conn);
@@ -1118,7 +1115,7 @@ void main()
 	struct sockaddr_in srvaddr;
 	struct sockaddr_in cliaddr;
 	int sin_size;
-	/*创建套接字描述符*/
+	
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("socket error");
 		exit(1);
@@ -1127,20 +1124,20 @@ void main()
 	int on = 1;
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 	bzero(&srvaddr, sizeof(srvaddr));
-	/*用自己的ip地址和端口信息填充一个internet套接字地址结构*/
+	
 	srvaddr.sin_family = AF_INET;                 
 	srvaddr.sin_port = htons(MYPORT);
-	/*函数bind将服务器的地址和套接字帮定在一起*/
+	
 	if(bind(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
 		perror("bind error");
 		exit(1);
 	}
-	/*listen函数告诉内核，这个套接字可以接受来自客户机的请求*/
+	
 	if(listen(sockfd, BACKLOG) == -1) {
 		perror("listen error");
 		exit(1);
 	}
-	/*处理客户机的请求，调用函数accept来获得一个客户机的连接*/
+	
 	for(;;)
 	{
 		sin_size = sizeof(struct sockaddr_in);
@@ -1149,13 +1146,12 @@ void main()
 			continue;
 		}
 		printf("server: got connection from %s \n", inet_ntoa(cliaddr.sin_addr));
-		/*接受客户数据*/
+		
 		if((nbytes = read(new_fd, buf, 10240)) == -1) {
 			perror("read error");
 			exit(-1);
 		}
-		//printf("%s\n", buf);
-		/*向客户起写数据*/
+		
 		char *s;
 		if((s = strstr(buf, "createall"))) {
 			create_all();
@@ -1219,7 +1215,6 @@ void main()
 
 		write(new_fd, buf, 10240);
 		close(new_fd);
-		//close(sockfd);
 		memset(buf, 0, 10240);
 	}
     close(sockfd);
