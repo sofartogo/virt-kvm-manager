@@ -368,7 +368,7 @@ void getstate()
 			virConnectClose(conn);
 			return;
 		}
-		sprintf(&buf[strlen(buf)], " %s %d", virDomainGetName(dom), *state);		
+		sprintf(&buf[strlen(buf)], "%s", virDomainGetName(dom), *state);		
 	}
 	free(dom);
 	virConnectClose(conn);
@@ -1025,7 +1025,8 @@ void list(int number)
 	
 	printf("state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, dominfo->cpuTime);
 
-	sprintf(buf, "state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, (dominfo->cpuTime)/1000000000);
+	//sprintf(buf, "state: %d, maxMem: %lu, memory: %lu, nrVirtCpu: %u, cpuTime:%llu\n", dominfo->state, dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu, (dominfo->cpuTime)/1000000000);
+	sprintf(buf, "%lu,%lu,%u,%llu,",dominfo->maxMem, dominfo->memory, dominfo->nrVirtCpu,dominfo->cpuTime/1000);
 	
 
 	vnet = getDomainInterfacePath(dom);
@@ -1038,8 +1039,10 @@ void list(int number)
 		return;
 	} 
 	printf("rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
-	sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
+	//sprintf(&(buf[strlen(buf)]), "rx_bytes: %lld, tx_bytes: %lld\n", stats->rx_bytes, stats->tx_bytes);
+	sprintf(&(buf[strlen(buf)]), "%lld,%lld\n", stats->rx_bytes, stats->tx_bytes);
 	
+
 	virDomainFree(dom);
 	virConnectClose(conn);
 

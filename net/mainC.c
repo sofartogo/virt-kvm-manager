@@ -40,7 +40,7 @@ static struct timeval startTime;
 static struct timeval endTime;
 static int flag = 1;
 
-char *node_ip[1] = {"10.5.0.121"};
+char *node_ip[2] = {"10.5.0.121", "10.5.0.227"};
 
 void get_network_flow(char buf[10240], long long * rx_bytes, long long * tx_bytes)
 {
@@ -871,10 +871,10 @@ void getstate(int argc, char ** argv)
 		}
 		close(sockfd);
 		if(strlen(buf_tmp) != 0) {
-			sprintf(buf, "node %s%s\n", node_ip[i], buf_tmp);
+			sprintf(&buf[strlen(buf)], "node%s%s", node_ip[i], buf_tmp);
 		}
 	}
-	buf[nbytes] = '\0';
+	buf[strlen(buf)] = '\n';
 	printf("%s", buf);
 }
 
