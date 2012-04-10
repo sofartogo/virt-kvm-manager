@@ -33,7 +33,7 @@
 #include <libvirt/virterror.h>
 
 #define MYPORT 3001 /*开放的端口号*/
-#define BACKLOG 100  /*指定套接字可以接受的最大未接受客户机请求的数目*/
+#define BACKLOG 5  /*指定套接字可以接受的最大未接受客户机请求的数目*/
 #define create_port 3500
 #define createall_port 3501
 #define list_port 3502
@@ -63,13 +63,6 @@ typedef struct
 	unsigned long free;                       
 }MEM_OCCUPY;
 
-typedef struct 
-{
-	char name[20];
-	long rb, rpkt, r_err, r_drop, r_fifo, r_frame, r_compr, r_mcast;
-	long tb, tpkg, t_err, t_drop, t_fifo, t_frame, t_compr, t_mcast;
-}NET_OCCUPY;
-
 float get_memoccupy (MEM_OCCUPY *mem) 
 {
 	FILE *fd;          
@@ -77,7 +70,7 @@ float get_memoccupy (MEM_OCCUPY *mem)
 	char buff[256];   
 	MEM_OCCUPY *m;
 	m=mem;
-	fd = fopen ("/proc/meminfo", "r"); 
+						                                                        fd = fopen ("/proc/meminfo", "r"); 
 	fgets (buff, sizeof(buff), fd); 
 	sscanf (buff, "%s %lu %s", m->name, &m->total, m->name2); 
 	fgets (buff, sizeof(buff), fd); 
@@ -109,7 +102,7 @@ float cal_cpuoccupy (CPU_OCCUPY *stat1, CPU_OCCUPY *stat2)
 		return (float)0;
 }
 
-void get_cpuoccupy (CPU_OCCUPY *cpust) 
+get_cpuoccupy (CPU_OCCUPY *cpust) 
 {   
 	FILE *fd;         
 	int n;            
@@ -124,23 +117,6 @@ void get_cpuoccupy (CPU_OCCUPY *cpust)
 	fclose(fd);
 }
 
-int get_netoccupy(NET_OCCUPY *net)
-{
-	FILE *fd;
-	char buf[256];
-	NET_OCCUPY *net_occupy;
-	net_occupy = net;
-
-	fd = fopen("/proc/net/dev", "r");
-
-	fgets(buf, sizeof(buf), fd);
-	fgets(buf, sizeof(buf), fd);
-	fgets(buf, sizeof(buf), fd);
-	fgets(buf, sizeof(buf), fd);
-	sscanf(buf, "%s %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld", net_occupy->name, &net_occupy->rb, &net_occupy->rpkt, &net_occupy->r_err, &net_occupy->r_drop, &net_occupy->r_fifo, &net_occupy->r_frame, &net_occupy->r_compr, &net_occupy->r_mcast, &net_occupy->tb, &net_occupy->tpkg);
-	fclose(fd);
-	return 0;
-}
 
 char * getDomainInterfacePath(virDomainPtr dom)
 {
@@ -337,28 +313,21 @@ void definevm(int number)
 void listnode()
 {
 	float mem_usage, cpu_usage;
-	CPU_OCCUPY cpu_stat;
-	//CPU_OCCUPY cpu_stat2;
-	NET_OCCUPY net_stat;
+	CPU_OCCUPY cpu_stat1;
+	CPU_OCCUPY cpu_stat2;                                                      
 	MEM_OCCUPY mem_stat;                 
-	long cpu_use, cpu_total;
+
 	mem_usage = get_memoccupy((MEM_OCCUPY *)&mem_stat);			
-	//printf("mem_usage = %f100%%\n", mem_usage);			
-	get_cpuoccupy((CPU_OCCUPY *)&cpu_stat);
-	get_netoccupy((NET_OCCUPY *)&net_stat);
-	cpu_use = cpu_stat.user + cpu_stat.nice + cpu_stat.system;
- 	cpu_total = cpu_use + cpu_stat.idle;
-
-	sprintf(buf, "%ld,%ld,%ld,%ld,%ld,%ld\n", mem_stat.total/1024, (mem_stat.total - mem_stat.free - mem_stat.buffers - mem_stat.cached)/1024, cpu_use, cpu_total, net_stat.rb, net_stat.tb);
-	printf("%ld,%ld,%ld,%ld,%ld,%ld\n", mem_stat.total/1024, (mem_stat.total - mem_stat.free - mem_stat.buffers - mem_stat.cached)/1024, cpu_use, cpu_total, net_stat.rb, net_stat.tb);
-
-	//sleep(10);
+	printf("mem_usage = %f100%%\n", mem_usage);
+	//第一次获取cpu使用情况				
+	get_cpuoccupy((CPU_OCCUPY *)&cpu_stat1);
+	sleep(10);
 	//第二次获取cpu使用情况					
-	//get_cpuoccupy((CPU_OCCUPY *)&cpu_stat2);	
+	get_cpuoccupy((CPU_OCCUPY *)&cpu_stat2);	
 	//计算cpu使用率
-	//cpu_usage = cal_cpuoccupy((CPU_OCCUPY *)&cpu_stat1, (CPU_OCCUPY *)&cpu_stat2);
-	//printf("cpu_usage = %f100%%\n", cpu_usage);
-	//sprintf(buf, "mem_usage = %f100%% cpu_usage = %f100%%\n", mem_usage, cpu_usage);
+	cpu_usage = cal_cpuoccupy((CPU_OCCUPY *)&cpu_stat1, (CPU_OCCUPY *)&cpu_stat2);
+	printf("cpu_usage = %f100%%\n", cpu_usage);
+	sprintf(buf, "mem_usage = %f100%% cpu_usage = %f100%%\n", mem_usage, cpu_usage);
 	return;
 	
 }
@@ -406,9 +375,8 @@ void getstate()
 			return;
 		}
 		sprintf(&buf[strlen(buf)], "%s", virDomainGetName(dom), *state);		
-		virDomainFree(dom);
-
 	}
+	free(dom);
 	virConnectClose(conn);
 
 	return ;
@@ -1167,7 +1135,7 @@ void main()
 	bzero(&srvaddr, sizeof(srvaddr));
 	
 	srvaddr.sin_family = AF_INET;                 
-	srvaddr.sin_port = htons(MYPORT);
+	srvaddr.sin_port = htons(list_port);
 	
 	if(bind(sockfd, (struct sockaddr *)&srvaddr, sizeof(struct sockaddr)) == -1) {
 		perror("bind error");

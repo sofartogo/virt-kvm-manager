@@ -31,6 +31,14 @@
 #define PORT 3001
 #define MAXDATASIZE 5000
 
+#define create_port 3500
+#define createall_port 3501
+#define list_port 3502
+#define getstate_port 3503
+#define listnode_port 3504
+#define reboot_port 3505
+
+
 int is_netflowall = 0;
 int number;
 const char * ip = NULL;

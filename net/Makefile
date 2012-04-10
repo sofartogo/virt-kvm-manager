@@ -9,7 +9,7 @@ CFLAGS=`pkg-config --cflags --libs gtk+-2.0` -lvirt -g
 #	gcc -c $^
 
 virt:virt.c
-
+#virt_list:virt_list.c
 mainC:mainC.c
 
 #mainC: mainC.o 
@@ -20,4 +20,4 @@ mainC:mainC.c
 
 .PHONY:clean
 clean:
-	rm *.o virt mainC
+	rm *.o virt mainC virt_list
